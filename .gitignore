@@ -1,0 +1,13 @@
+# --- C/C++ Compilation ---
+*.o
+*.out
+*.exe
+*.bin
+*.elf
+
+# --- VS Code ---
+.vscode/
+
+# --- OS Files ---
+.DS_Store
+*~
