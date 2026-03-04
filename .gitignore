@@ -11,3 +11,7 @@
 # --- OS Files ---
 .DS_Store
 *~
+
+# --- Security Fail-Safes ---
+ReichmanEmbedded
+ReichmanEmbedded.pub
