@@ -5,7 +5,8 @@ int test_normal_factorial(void);
 int test_zero_factorial(void);
 int test_negative_factorial(void);
 
-int main(void) {
+int main(void) 
+{
     int passed = 0;
     int total = 3;
 
@@ -30,14 +31,16 @@ int test_normal_factorial(void)
     {
         printf("[PASS] test_normal_factorial\n");
         return 1;
-    } else 
+    } 
+    else 
     {
         printf("[FAIL] test_normal_factorial: expected %lu, got %lu\n", expected, result);
         return 0;
     }
 }
 
-int test_zero_factorial(void) {
+int test_zero_factorial(void) 
+{
     unsigned long expected = 1;
     unsigned long result = calculateFactorial(0);
     
@@ -45,14 +48,16 @@ int test_zero_factorial(void) {
     {
         printf("[PASS] test_zero_factorial\n");
         return 1;
-    } else 
+    } 
+    else 
     {
         printf("[FAIL] test_zero_factorial: expected %lu, got %lu\n", expected, result);
         return 0;
     }
 }
 
-int test_negative_factorial(void) {
+int test_negative_factorial(void) 
+{
     unsigned long expected = 0;
     unsigned long result = calculateFactorial(-5);
     
@@ -60,7 +65,8 @@ int test_negative_factorial(void) {
     {
         printf("[PASS] test_negative_factorial\n");
         return 1;
-    } else 
+    } 
+    else 
     {
         printf("[FAIL] test_negative_factorial: expected %lu, got %lu\n", expected, result);
         return 0;
