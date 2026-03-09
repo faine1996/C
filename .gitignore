@@ -15,3 +15,7 @@
 # --- Security Fail-Safes ---
 ReichmanEmbedded
 ReichmanEmbedded.pub
+
+# --- Build Directories ---
+bin/
+build/
