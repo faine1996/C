@@ -45,7 +45,7 @@ int mastermind(int base, int check)
                 total_shared += 1;
                 break;
             }
-
+            
             temp_base /= 10;
         }
 

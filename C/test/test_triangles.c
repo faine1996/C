@@ -4,7 +4,9 @@
 int main(void)
 {
     int n = 0;
+    int bad_n = -5;
     char c = '\0';
+    int status = 0;
 
     printf("Enter the number of lines (N): ");
     scanf("%d", &n);
@@ -13,22 +15,40 @@ int main(void)
     scanf(" %c", &c);
 
     printf("\n=== func1 (Ascending Left) ===\n");
-    func1(n, c);
+    status = func1(n, c);
+    printf("Return Code: %d\n", status);
 
     printf("\n=== func2 (Descending Left) ===\n");
-    func2(n, c);
+    status = func2(n, c);
+    printf("Return Code: %d\n", status);
 
     printf("\n=== func3 (Arrow Left) ===\n");
-    func3(n, c);
+    status = func3(n, c);
+    printf("Return Code: %d\n", status);
 
     printf("\n=== func4 (Ascending Right) ===\n");
-    func4(n, c);
+    status = func4(n, c);
+    printf("Return Code: %d\n", status);
 
     printf("\n=== func5 (Descending Right) ===\n");
-    func5(n, c);
+    status = func5(n, c);
+    printf("Return Code: %d\n", status);
 
     printf("\n=== func6 (Arrow Right) ===\n");
-    func6(n, c);
+    status = func6(n, c);
+    printf("Return Code: %d\n", status);
+
+    /* Test the defensive error handling limits */
+    printf("\n=== Testing Error Handling (N = %d) ===\n", bad_n);
+    status = func1(bad_n, c);
+    if (ERROR == status)
+    {
+        printf("[PASS] Function correctly blocked invalid input. Return Code: %d\n", status);
+    }
+    else
+    {
+        printf("[FAIL] Function allowed invalid input!\n");
+    }
 
     return 0;
 }
