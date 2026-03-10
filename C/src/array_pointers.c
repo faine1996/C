@@ -1,6 +1,9 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "../inc/array_pointers.h"
+
+int inputCheck(int numbers[], size_t size);
 
 int maxNumberApp(int numbers[], size_t size)
 {
@@ -10,10 +13,13 @@ int maxNumberApp(int numbers[], size_t size)
     size_t max_number_app = 0;
     size_t i = 0;
     size_t j = 0;
+    int status = 0;
 
-    if (0 == size || !numbers)
+    status = inputCheck(numbers,size);
+
+    if (0 != status)
     {
-        return ERROR;
+        return status;
     }
 
     current_num = numbers[0];
@@ -26,7 +32,7 @@ int maxNumberApp(int numbers[], size_t size)
         {
             if (current_num == numbers[j])
             {
-                max_number_app += 1;
+                ++max_number_app;
             }
         }
         if (max_number_app > max_app)
@@ -36,4 +42,76 @@ int maxNumberApp(int numbers[], size_t size)
         }
     }
     return current_max_num;
+}
+
+int organizeEvenOdd(int numbers[], size_t size)
+{
+    int *temp_arr = NULL;
+    size_t even_count = 0;
+    int status = 0;
+    int* even_ptr = NULL;
+    int* odd_ptr = NULL;
+    int* runner = NULL;
+    size_t i = 0;
+
+    status = inputCheck(numbers,size);
+    if (0 != status)
+    {
+        return status;
+    }
+    runner = numbers;
+
+    temp_arr = malloc(size * sizeof(int));
+    if (NULL == temp_arr)
+    {
+        return ERROR;
+    }
+
+    even_ptr = temp_arr;
+    odd_ptr = temp_arr;
+    
+    while (runner < numbers + size)
+    {
+        if (0 == *runner % 2)
+        {
+            ++even_count;
+        }
+        ++runner;
+    }
+
+    even_ptr = temp_arr;
+    odd_ptr = temp_arr + even_count;
+    runner = numbers;
+    while (runner < numbers + size)
+    {
+        if (0 == *runner % 2)
+        {
+            *even_ptr = *runner;
+            ++even_ptr;
+        }
+        else
+        {
+            *odd_ptr = *runner;
+            ++odd_ptr; 
+        }
+        ++runner;
+    }
+
+    for (; i < size; ++i) 
+    {
+        *(numbers + i) = *(temp_arr + i);
+    }
+
+    free(temp_arr);
+    return even_count;
+}
+
+int inputCheck(int numbers[], size_t size)
+{
+    if (0 == size || !numbers)
+    {
+        return ERROR;
+    }
+
+    return SUCCESS;
 }

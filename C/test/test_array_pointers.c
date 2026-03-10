@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "../inc/array_pointers.h"
 
@@ -6,6 +7,10 @@ void testClearWinner();
 void testTieBreaker();
 void testNoDuplicates();
 void testEmptyArray();
+void testMixedNumbers();
+void testNegativeNumbers();
+void testAllOdd();
+void testAllEven();
 
 int main() {
     printf("--- Running Array Tests ---\n");
@@ -14,6 +19,10 @@ int main() {
     testTieBreaker();
     testNoDuplicates();
     testEmptyArray();
+    testMixedNumbers();
+    testNegativeNumbers();
+    testAllOdd();
+    testAllEven();
     
     printf("--- All Tests Complete ---\n");
     return 0;
@@ -40,4 +49,66 @@ void testNoDuplicates() {
 void testEmptyArray() {
     int result = maxNumberApp(NULL, 0);
     printf("Test 4 (Empty/Null): Expected %d, Got %d\n", ERROR, result);
+}
+
+void testMixedNumbers() {
+    int arr[] = {5, 2, 8, 3, 4, 1};
+    size_t size = 6;
+    size_t i = 0;
+    int count = 0;
+    printf("Test Mixed: Original: { ");
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    
+    count = organizeEvenOdd(arr, size);
+    
+    i = 0;
+    printf("}. Result (Count: %d): { ", count);
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    printf("}\n");
+}
+
+void testNegativeNumbers() {
+    int arr[] = {-2, -3, 4, -5, 0};
+    size_t size = 5;
+    size_t i = 0;
+    int count = 0;
+    printf("Test Negative: Original: { ");
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    
+    count = organizeEvenOdd(arr, size);
+    
+    i = 0;
+    printf("}. Result (Count: %d): { ", count);
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    printf("}\n");
+}
+
+void testAllOdd() {
+    int arr[] = {1, 3, 5};
+    size_t size = 3;
+    size_t i = 0;
+    int count = 0;
+    printf("Test All Odd: Original: { ");
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    
+    count = organizeEvenOdd(arr, size);
+    i = 0;
+    printf("}. Result (Count: %d): { ", count);
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    printf("}\n");
+}
+
+void testAllEven() {
+    int arr[] = {2, 4, 6};
+    size_t size = 3;
+    size_t i = 0;
+    int count = 0;
+    printf("Test All Even: Original: { ");
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    
+    count = organizeEvenOdd(arr, size);
+    i = 0;
+    printf("}. Result (Count: %d): { ", count);
+    for(; i < size; ++i) printf("%d ", arr[i]);
+    printf("}\n");
 }
