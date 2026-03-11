@@ -13,7 +13,7 @@
  * Return: SUCCESS, or ERROR if n is out of bounds.
  */
 
-int maxNumberApp(int numbers[], size_t size);
+int maxNumberApp(int *numbers, size_t size, int *result);
 
 /*
  * Description: A functoin that returns the number of even numbers in a given array and puts even numbers first and odd numbers second
@@ -22,7 +22,7 @@ int maxNumberApp(int numbers[], size_t size);
  * Return: SUCCESS, or ERROR if n is out of bounds.
  */
 
-int organizeEvenOdd(int numbers[], size_t size);
+int organizeEvenOdd(int *numbers, size_t size, int *even_count);
 
 /*
  * Description: A functoin that returns an array sorted in ascending order
@@ -31,5 +31,13 @@ int organizeEvenOdd(int numbers[], size_t size);
  * Return: SUCCESS, or ERROR if n is out of bounds.
  */
 int bubbleSort(int numbers[], size_t size);
+
+/*
+ * description: sorts an array of 0s and 1s so all 0s appear first.
+ * expected input: array of numbers (int *), length of array (size_t).
+ * expected output: array modified in place.
+ * return: SUCCESS, or ERROR if input is invalid.
+ */
+int sortBinaryArray(int *numbers, size_t size);
 
  #endif
