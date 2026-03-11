@@ -11,8 +11,15 @@ void testMixedNumbers();
 void testNegativeNumbers();
 void testAllOdd();
 void testAllEven();
+void testBubbleAlreadySorted();
+void testBubbleReverseOrder();
+void testBubbleMixedNumbers();
+void testBubbleWithDuplicates();
+void testBubbleEmptyArray();
+void printArray(int arr[], size_t size);
 
-int main() {
+int main() 
+{
     printf("--- Running Array Tests ---\n");
     
     testClearWinner();
@@ -23,35 +30,45 @@ int main() {
     testNegativeNumbers();
     testAllOdd();
     testAllEven();
+    testBubbleAlreadySorted();
+    testBubbleReverseOrder();
+    testBubbleMixedNumbers();
+    testBubbleWithDuplicates();
+    testBubbleEmptyArray();
     
     printf("--- All Tests Complete ---\n");
     return 0;
 }
 
-void testClearWinner() {
+void testClearWinner() 
+{
     int arr[] = {1, 3, 7, 3, 2, 3, 7};
     int result = maxNumberApp(arr, 7);
     printf("Test 1 (Clear Winner): Expected 3, Got %d\n", result);
 }
 
-void testTieBreaker() {
+void testTieBreaker() 
+{
     int arr[] = {10, 20, 30, 20, 10};
     int result = maxNumberApp(arr, 5);
     printf("Test 2 (Tie-Breaker): Expected 10, Got %d\n", result);
 }
 
-void testNoDuplicates() {
+void testNoDuplicates() 
+{
     int arr[] = {5, 9, 2, 4};
     int result = maxNumberApp(arr, 4);
     printf("Test 3 (No Duplicates): Expected 5, Got %d\n", result);
 }
 
-void testEmptyArray() {
+void testEmptyArray() 
+{
     int result = maxNumberApp(NULL, 0);
     printf("Test 4 (Empty/Null): Expected %d, Got %d\n", ERROR, result);
 }
 
-void testMixedNumbers() {
+void testMixedNumbers() 
+{
     int arr[] = {5, 2, 8, 3, 4, 1};
     size_t size = 6;
     size_t i = 0;
@@ -67,7 +84,8 @@ void testMixedNumbers() {
     printf("}\n");
 }
 
-void testNegativeNumbers() {
+void testNegativeNumbers() 
+{
     int arr[] = {-2, -3, 4, -5, 0};
     size_t size = 5;
     size_t i = 0;
@@ -83,7 +101,8 @@ void testNegativeNumbers() {
     printf("}\n");
 }
 
-void testAllOdd() {
+void testAllOdd() 
+{
     int arr[] = {1, 3, 5};
     size_t size = 3;
     size_t i = 0;
@@ -98,7 +117,8 @@ void testAllOdd() {
     printf("}\n");
 }
 
-void testAllEven() {
+void testAllEven() 
+{
     int arr[] = {2, 4, 6};
     size_t size = 3;
     size_t i = 0;
@@ -111,4 +131,87 @@ void testAllEven() {
     printf("}. Result (Count: %d): { ", count);
     for(; i < size; ++i) printf("%d ", arr[i]);
     printf("}\n");
+}
+
+void printArray(int arr[], size_t size) 
+{
+    size_t i;
+    printf("{ ");
+    for(i = 0; i < size; ++i) 
+    {
+        printf("%d ", arr[i]);
+    }
+    printf("}");
+}
+
+void testBubbleAlreadySorted(void) 
+{
+    int arr[] = {1, 2, 3, 4, 5};
+    size_t size = 5;
+    int status;
+    
+    printf("Test Sorted (Early Exit): Original: ");
+    printArray(arr, size);
+    
+    status = bubbleSort(arr, size);
+    
+    printf(". Result (Status: %d): ", status);
+    printArray(arr, size);
+    printf("\n");
+}
+
+void testBubbleReverseOrder(void) 
+{
+    int arr[] = {5, 4, 3, 2, 1};
+    size_t size = 5;
+    int status;
+    
+    printf("Test Reverse (Worst Case): Original: ");
+    printArray(arr, size);
+    
+    status = bubbleSort(arr, size);
+    
+    printf(". Result (Status: %d): ", status);
+    printArray(arr, size);
+    printf("\n");
+}
+
+void testBubbleMixedNumbers(void) 
+{
+    int arr[] = {7, 2, 9, 1, 5};
+    size_t size = 5;
+    int status;
+    
+    printf("Test Mixed: Original: ");
+    printArray(arr, size);
+    
+    status = bubbleSort(arr, size);
+    
+    printf(". Result (Status: %d): ", status);
+    printArray(arr, size);
+    printf("\n");
+}
+
+void testBubbleWithDuplicates(void) 
+{
+    int arr[] = {3, 1, 4, 1, 5, 9, 3};
+    size_t size = 7;
+    int status;
+    
+    printf("Test Duplicates: Original: ");
+    printArray(arr, size);
+    
+    status = bubbleSort(arr, size);
+    
+    printf(". Result (Status: %d): ", status);
+    printArray(arr, size);
+    printf("\n");
+}
+
+void testBubbleEmptyArray(void) 
+{
+    int status;
+    printf("Test Empty/Null: ");
+    status = bubbleSort(NULL, 0);
+    printf("Expected %d, Got %d\n", ERROR, status);
 }

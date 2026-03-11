@@ -24,5 +24,12 @@ int maxNumberApp(int numbers[], size_t size);
 
 int organizeEvenOdd(int numbers[], size_t size);
 
+/*
+ * Description: A functoin that returns an array sorted in ascending order
+ * Expected Input: array of numbers (int), length of array (size_t).
+ * Expected Output: Returns an array sorted in ascending order
+ * Return: SUCCESS, or ERROR if n is out of bounds.
+ */
+int bubbleSort(int numbers[], size_t size);
 
  #endif

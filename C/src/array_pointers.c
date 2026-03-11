@@ -106,6 +106,43 @@ int organizeEvenOdd(int numbers[], size_t size)
     return even_count;
 }
 
+int bubbleSort(int numbers[], size_t size)
+{
+    int status = 0;
+    size_t out_ind = 0;
+    size_t in_ind = 1;
+    int temp = 0;
+    int swap_flag = 0;
+
+
+    status = inputCheck(numbers,size);
+    if (0 != status)
+    {
+        return status;
+    }
+
+    for (; out_ind < size; ++out_ind)
+    {
+        swap_flag = 0;
+        for (in_ind = 1;in_ind < size - out_ind; ++in_ind)
+        {
+            if (numbers[in_ind] < numbers[in_ind - 1])
+            {
+                temp = numbers[in_ind -1];
+                numbers[in_ind -1] = numbers[in_ind];
+                numbers[in_ind] = temp;
+                swap_flag = 1;
+            }
+        }
+
+        if (0 == swap_flag) 
+        {
+            break; 
+        }
+    }
+    return SUCCESS;
+}
+
 int inputCheck(int numbers[], size_t size)
 {
     if (0 == size || !numbers)
