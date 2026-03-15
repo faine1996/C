@@ -6,6 +6,7 @@
 
 int inputCheck(const char *_str);
 void swapAndLower(char *a, char *b);
+int outputCheck(int *result_ptr);
 
 int ReverseStr(char *_str)
 {
@@ -84,6 +85,60 @@ int IsPalindrome(char *_str)
 
 }
 
+int MyAToI(char *_str, int *_num)
+{
+
+	const char* runner_ptr = NULL;
+	int sign = 1;
+	int result = 0;
+    int status = 0;
+    int inp_len;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    status = outputCheck(_num);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return ERROR; 
+    }
+	
+	runner_ptr = _str;
+	
+	while (isspace(*runner_ptr))
+	{
+		++runner_ptr;
+	}
+	
+	if ('-' == *runner_ptr)
+	{
+		sign = -1;
+		++runner_ptr;
+	}
+	else if('+' == *runner_ptr)
+	{
+		++runner_ptr;
+	}
+	
+	while ('0' <= *runner_ptr && '9' >= *runner_ptr)
+	{
+		result = (result * 10) + (*runner_ptr - '0');
+		++runner_ptr;
+	}
+    *_num = result * sign;
+	
+	return SUCCESS;
+}
+
 int inputCheck(const char *_str)
 {
     if (NULL == _str)
@@ -98,4 +153,13 @@ void swapAndLower(char *a, char *b)
     char temp = tolower(*a);
     *a = tolower(*b);
     *b = temp;
+}
+
+int outputCheck(int *result_ptr)
+{
+    if (NULL == result_ptr)
+    {
+        return ERROR;
+    }
+    return SUCCESS;
 }
