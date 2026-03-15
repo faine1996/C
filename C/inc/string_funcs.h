@@ -3,6 +3,12 @@
 
 #define ERROR -1
 #define SUCCESS 0
+#define BUFFER_SIZE (100)
+
+typedef enum {
+    FALSE = 0,
+    TRUE = 1 
+} Flag;
 
 /*
  * Description: A function that reverses an array of characters in place
@@ -25,10 +31,19 @@ int IsPalindrome(char *_str);
 /*
  * Description: A function that takes ascii characters and returns the integer equivalent
  * Expected Input: An array of characters
- * Expected Output: Returns integer indicating if the input is a palindrome or not
+ * Expected Output: Returns integer indicating conversion was successful
  * Return: SUCCESS, or ERROR if n is out of bounds.
  */
 
 int MyAToI(char *_str, int *_num);
+
+/*
+ * Description: A function that takes integer and returns the ascii equivalent
+ * Expected Input: An integer
+ * Expected Output: Returns integer indicating conversion was successful
+ * Return: SUCCESS, or ERROR if n is out of bounds.
+ */
+
+int MyIToA(int _num, char *_buffer);
 
 #endif
