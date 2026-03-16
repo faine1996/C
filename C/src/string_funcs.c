@@ -1,0 +1,346 @@
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "../inc/string_funcs.h"
+
+int inputCheck(const char *_str);
+void swapAndLower(char *a, char *b);
+int outputCheck(int *result_ptr);
+int reverseSegment(char* start_ptr, char* end_ptr);
+
+int ReverseStr(char *_str)
+{
+    int status = 0;
+    int inp_len;
+    char *begin_ptr;
+    char *end_ptr;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return SUCCESS; 
+    }
+
+    begin_ptr = _str;
+    end_ptr = _str + inp_len -1;
+    
+    while (begin_ptr < end_ptr)
+    {
+        swapAndLower(begin_ptr, end_ptr);
+        
+        ++begin_ptr;
+        --end_ptr;
+    }
+
+    if (begin_ptr == end_ptr) 
+    {
+        *begin_ptr = tolower(*begin_ptr);
+    }
+
+    return SUCCESS;
+}
+
+int IsPalindrome(char *_str)
+{
+    int status = 0;
+    int inp_len;
+    char *begin_ptr;
+    char *end_ptr;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return ERROR; 
+    }
+
+    begin_ptr = _str;
+    end_ptr = _str + inp_len - 1;
+    if (end_ptr < begin_ptr)
+    {
+        return SUCCESS;
+    }
+
+    while (begin_ptr < end_ptr)
+    {
+        if (*begin_ptr != *end_ptr)
+        {
+            return ERROR;
+        }
+        ++begin_ptr;
+        --end_ptr;
+    }
+    return SUCCESS;
+
+}
+
+int MyAToI(char *_str, int *_num)
+{
+
+	const char* runner_ptr = NULL;
+	int sign = 1;
+	int result = 0;
+    int status = 0;
+    int inp_len;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    status = outputCheck(_num);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return ERROR; 
+    }
+	
+	runner_ptr = _str;
+	
+	while (isspace(*runner_ptr))
+	{
+		++runner_ptr;
+	}
+	
+	if ('-' == *runner_ptr)
+	{
+		sign = -1;
+		++runner_ptr;
+	}
+	else if('+' == *runner_ptr)
+	{
+		++runner_ptr;
+	}
+	
+	while ('0' <= *runner_ptr && '9' >= *runner_ptr)
+	{
+		result = (result * 10) + (*runner_ptr - '0');
+		++runner_ptr;
+	}
+    *_num = result * sign;
+	
+	return SUCCESS;
+}
+
+int MyIToA(int _num, char *_buffer)
+{
+	char* runner_ptr = NULL;
+	size_t is_neg = FALSE;
+	size_t temp = 0;
+    int status = 0;
+	
+	status = inputCheck(_buffer);
+    if (status) 
+    {
+        return status;
+    }
+	
+	runner_ptr = _buffer;
+	
+	if (0 == _num)
+	{
+		*runner_ptr = '0';
+		++runner_ptr;
+		*runner_ptr = '\0';
+		
+		return SUCCESS; 
+	}
+	
+	if (0 > _num)
+	{
+		temp = -_num;
+		is_neg = TRUE;
+	}
+	else
+	{
+		temp = _num;
+	}
+	
+	while (temp)
+	{
+		*runner_ptr = ((temp % 10) + '0');
+		++runner_ptr;
+		temp /= 10;
+	}
+	
+	if (is_neg)
+	{
+		*runner_ptr = '-';
+		++runner_ptr;
+		*runner_ptr = '\0';
+	}
+	
+	*runner_ptr = '\0';
+	
+	ReverseStr(_buffer);
+	
+	return SUCCESS;
+}
+
+int ReverseWordsInString(char* _str)
+{
+    int status = 0;
+    char* word_start = NULL;
+    char* runner = NULL;
+    int inp_len = 0;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return SUCCESS; 
+    }
+
+    status = reverseSegment(_str,_str + inp_len -1);
+    if (status) 
+    {
+        return status;
+    }
+
+    word_start = _str;
+    runner = _str;
+
+    while (*runner)
+    {
+        if (' ' == *runner)
+        {
+            status = reverseSegment(word_start,runner - 1);
+            if (status) 
+            {
+                return status;
+            }
+            word_start = runner + 1;
+        }
+        ++runner;
+    }
+
+    status = reverseSegment(word_start,runner - 1);
+    if (status) 
+    {
+        return status;
+    }
+
+    return SUCCESS;
+}
+
+int countWordsInString(char* _str)
+{
+    int status = 0;
+    size_t word_count = 0;
+    char* runner = NULL;
+    int inp_len = 0;
+    int in_word_flag = FALSE;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return SUCCESS; 
+    }
+
+    runner = _str;
+
+    while (*runner)
+    {
+        if (isspace(*runner))
+        {
+            in_word_flag = FALSE;
+        }
+        else
+        {
+            if (FALSE == in_word_flag)
+            {
+                in_word_flag = TRUE;
+                ++word_count;
+            }
+        }
+        ++runner;
+    }
+
+    return word_count;
+}
+
+int inputCheck(const char *_str)
+{
+    if (NULL == _str)
+    {
+        return ERROR;
+    }
+    return SUCCESS;
+}
+
+void swapAndLower(char *a, char *b)
+{
+    char temp;
+
+    temp = tolower(*a);
+    *a = tolower(*b);
+    *b = temp;
+}
+
+int outputCheck(int *result_ptr)
+{
+    if (NULL == result_ptr)
+    {
+        return ERROR;
+    }
+    return SUCCESS;
+}
+
+int reverseSegment(char* start_ptr, char* end_ptr)
+{
+    int status = 0;
+    char temp_char;
+
+    status = inputCheck(start_ptr);
+    if (status) 
+    {
+        return status;
+    }
+
+    status = inputCheck(end_ptr);
+    if (status) 
+    {
+        return status;
+    }
+
+    while (start_ptr < end_ptr)
+    {
+        temp_char = *start_ptr;
+        *start_ptr = *end_ptr;
+        *end_ptr = temp_char;
+
+        ++start_ptr;
+        --end_ptr;
+    }
+
+    return SUCCESS;
+}
