@@ -7,6 +7,7 @@
 int inputCheck(const char *_str);
 void swapAndLower(char *a, char *b);
 int outputCheck(int *result_ptr);
+int reverseSegment(char* start_ptr, char* end_ptr);
 
 int ReverseStr(char *_str)
 {
@@ -194,6 +195,57 @@ int MyIToA(int _num, char *_buffer)
 	return SUCCESS;
 }
 
+int ReverseWordsInString(char* _str)
+{
+    int status = 0;
+    char* word_start = NULL;
+    char* runner = NULL;
+    int inp_len = 0;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return SUCCESS; 
+    }
+
+    status = reverseSegment(_str,_str + inp_len -1);
+    if (status) 
+    {
+        return status;
+    }
+
+    word_start = _str;
+    runner = _str;
+
+    while (*runner)
+    {
+        if (' ' == *runner)
+        {
+            status = reverseSegment(word_start,runner - 1);
+            if (status) 
+            {
+                return status;
+            }
+            word_start = runner + 1;
+        }
+        ++runner;
+    }
+
+    status = reverseSegment(word_start,runner - 1);
+    if (status) 
+    {
+        return status;
+    }
+
+    return SUCCESS;
+}
+
 int inputCheck(const char *_str)
 {
     if (NULL == _str)
@@ -205,7 +257,9 @@ int inputCheck(const char *_str)
 
 void swapAndLower(char *a, char *b)
 {
-    char temp = tolower(*a);
+    char temp;
+
+    temp = tolower(*a);
     *a = tolower(*b);
     *b = temp;
 }
@@ -216,5 +270,35 @@ int outputCheck(int *result_ptr)
     {
         return ERROR;
     }
+    return SUCCESS;
+}
+
+int reverseSegment(char* start_ptr, char* end_ptr)
+{
+    int status = 0;
+    char temp_char;
+
+    status = inputCheck(start_ptr);
+    if (status) 
+    {
+        return status;
+    }
+
+    status = inputCheck(end_ptr);
+    if (status) 
+    {
+        return status;
+    }
+
+    while (start_ptr < end_ptr)
+    {
+        temp_char = *start_ptr;
+        *start_ptr = *end_ptr;
+        *end_ptr = temp_char;
+
+        ++start_ptr;
+        --end_ptr;
+    }
+
     return SUCCESS;
 }

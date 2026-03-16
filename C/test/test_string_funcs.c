@@ -26,6 +26,12 @@ void testIToA_Zero(void);
 void testIToA_MaxInt(void);
 void testIToA_MinInt(void);
 void testIToA_NullBuffer(void);
+void testReverseWordsNormal(void);
+void testReverseWordsMultipleSpaces(void);
+void testReverseWordsSingleWord(void);
+void testReverseWordsTrailingSpaces(void);
+void testReverseWordsEmptyString(void);
+void testReverseWordsNullPointer(void);
 
 int main(void) 
 {
@@ -56,6 +62,13 @@ int main(void)
     testIToA_MaxInt();
     testIToA_MinInt();
     testIToA_NullBuffer();
+
+    testReverseWordsNormal();
+    testReverseWordsMultipleSpaces();
+    testReverseWordsSingleWord();
+    testReverseWordsTrailingSpaces();
+    testReverseWordsEmptyString();
+    testReverseWordsNullPointer();
     
     printf("\n--- All Tests Complete ---\n");
     return 0;
@@ -249,7 +262,7 @@ void testAToI_Str7(void)
 void testIToA_Positive(void) 
 {
     int num = 12345;
-    char buffer[32] = {0}; /* 32 bytes is plenty for a 32-bit integer */
+    char buffer[32] = {0};
     int status;
 
     printf("Test 1 (Positive Number): Original: %d\n", num);
@@ -284,7 +297,7 @@ void testIToA_Zero(void)
 
 void testIToA_MaxInt(void) 
 {
-    int num = 2147483647; /* INT_MAX */
+    int num = 2147483647;
     char buffer[32] = {0};
     int status;
 
@@ -296,13 +309,12 @@ void testIToA_MaxInt(void)
 
 void testIToA_MinInt(void) 
 {
-    int num = -2147483648; /* INT_MIN */
+    int num = -2147483648;
     char buffer[32] = {0};
     int status;
 
     printf("Test 5 (Minimum Integer): Original: %d\n", num);
     status = MyIToA(num, buffer);
-    /* If this fails, it means your code tried to do `temp = -_num;` and overflowed! */
     printf("Expected: '-2147483648'\n");
     printf("Got     : '%s' (Status: %d)\n\n", buffer, status);
 }
@@ -314,6 +326,71 @@ void testIToA_NullBuffer(void)
 
     printf("Test 6 (NULL Buffer): Original: %d\n", num);
     status = MyIToA(num, NULL);
+    printf("Expected Status: %d\n", ERROR);
+    printf("Got Status     : %d\n\n", status);
+}
+
+void testReverseWordsNormal(void) 
+{
+    char str[] = "Good Morning";
+    int status;
+
+    printf("Test ReverseWords 1 (Normal): Original: 'Good Morning'\n");
+    status = ReverseWordsInString(str);
+    printf("Expected: 'Morning Good'\n");
+    printf("Got     : '%s' (Status: %d)\n\n", str, status);
+}
+
+void testReverseWordsMultipleSpaces(void) 
+{
+    char str[] = "Hello   World";
+    int status;
+
+    printf("Test ReverseWords 2 (Multiple Spaces): Original: 'Hello   World'\n");
+    status = ReverseWordsInString(str);
+    printf("Expected: 'World   Hello'\n");
+    printf("Got     : '%s' (Status: %d)\n\n", str, status);
+}
+
+void testReverseWordsSingleWord(void) 
+{
+    char str[] = "Coding";
+    int status;
+
+    printf("Test ReverseWords 3 (Single Word): Original: 'Coding'\n");
+    status = ReverseWordsInString(str);
+    printf("Expected: 'Coding'\n");
+    printf("Got     : '%s' (Status: %d)\n\n", str, status);
+}
+
+void testReverseWordsTrailingSpaces(void) 
+{
+    char str[] = "  Edge Case  ";
+    int status;
+
+    printf("Test ReverseWords 4 (Trailing/Leading Spaces): Original: '  Edge Case  '\n");
+    status = ReverseWordsInString(str);
+    printf("Expected: '  Case Edge  '\n");
+    printf("Got     : '%s' (Status: %d)\n\n", str, status);
+}
+
+void testReverseWordsEmptyString(void) 
+{
+    char str[] = "";
+    int status;
+
+    printf("Test ReverseWords 5 (Empty String): Original: ''\n");
+    status = ReverseWordsInString(str);
+    printf("Expected: ''\n");
+    printf("Got     : '%s' (Status: %d)\n\n", str, status);
+}
+
+void testReverseWordsNullPointer(void) 
+{
+    int status;
+
+    printf("Test ReverseWords 6 (NULL Pointer):\n");
+    status = ReverseWordsInString(NULL);
     printf("Expected Status: %d\n", ERROR);
     printf("Got Status     : %d\n\n", status);
 }

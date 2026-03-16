@@ -46,4 +46,13 @@ int MyAToI(char *_str, int *_num);
 
 int MyIToA(int _num, char *_buffer);
 
+/*
+ * Description: A function that takes a array of characters and reverses the order of words
+ * Expected Input: An array of characters
+ * Expected Output: Returns integer indicating reversal was successful
+ * Return: SUCCESS, or ERROR if n is out of bounds.
+ */
+
+int ReverseWordsInString(char* _str);
+
 #endif
