@@ -246,6 +246,48 @@ int ReverseWordsInString(char* _str)
     return SUCCESS;
 }
 
+int countWordsInString(char* _str)
+{
+    int status = 0;
+    size_t word_count = 0;
+    char* runner = NULL;
+    int inp_len = 0;
+    int in_word_flag = FALSE;
+
+    status = inputCheck(_str);
+    if (status) 
+    {
+        return status;
+    }
+
+    inp_len = strlen(_str);
+    if (0 == inp_len) 
+    {
+        return SUCCESS; 
+    }
+
+    runner = _str;
+
+    while (*runner)
+    {
+        if (isspace(*runner))
+        {
+            in_word_flag = FALSE;
+        }
+        else
+        {
+            if (FALSE == in_word_flag)
+            {
+                in_word_flag = TRUE;
+                ++word_count;
+            }
+        }
+        ++runner;
+    }
+
+    return word_count;
+}
+
 int inputCheck(const char *_str)
 {
     if (NULL == _str)

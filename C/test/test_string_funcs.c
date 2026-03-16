@@ -32,6 +32,12 @@ void testReverseWordsSingleWord(void);
 void testReverseWordsTrailingSpaces(void);
 void testReverseWordsEmptyString(void);
 void testReverseWordsNullPointer(void);
+void testCountWordsNormal(void);
+void testCountWordsMultipleSpaces(void);
+void testCountWordsLeadingTrailing(void);
+void testCountWordsOnlySpaces(void);
+void testCountWordsEmpty(void);
+void testCountWordsNull(void);
 
 int main(void) 
 {
@@ -69,6 +75,13 @@ int main(void)
     testReverseWordsTrailingSpaces();
     testReverseWordsEmptyString();
     testReverseWordsNullPointer();
+
+    testCountWordsNormal();
+    testCountWordsMultipleSpaces();
+    testCountWordsLeadingTrailing();
+    testCountWordsOnlySpaces();
+    testCountWordsEmpty();
+    testCountWordsNull();
     
     printf("\n--- All Tests Complete ---\n");
     return 0;
@@ -393,4 +406,69 @@ void testReverseWordsNullPointer(void)
     status = ReverseWordsInString(NULL);
     printf("Expected Status: %d\n", ERROR);
     printf("Got Status     : %d\n\n", status);
+}
+
+void testCountWordsNormal(void) 
+{
+    char str[] = "Good Morning";
+    int result;
+
+    printf("Test CountWords 1 (Normal): Original: '%s'\n", str);
+    result = countWordsInString(str);
+    printf("Expected: 2\n");
+    printf("Got     : %d\n\n", result);
+}
+
+void testCountWordsMultipleSpaces(void) 
+{
+    char str[] = "Hello     World";
+    int result;
+
+    printf("Test CountWords 2 (Multiple Spaces): Original: '%s'\n", str);
+    result = countWordsInString(str);
+    printf("Expected: 2\n");
+    printf("Got     : %d\n\n", result);
+}
+
+void testCountWordsLeadingTrailing(void) 
+{
+    char str[] = "   Edge Cases Rule   ";
+    int result;
+
+    printf("Test CountWords 3 (Leading/Trailing): Original: '%s'\n", str);
+    result = countWordsInString(str);
+    printf("Expected: 3\n");
+    printf("Got     : %d\n\n", result);
+}
+
+void testCountWordsOnlySpaces(void) 
+{
+    char str[] = "       ";
+    int result;
+
+    printf("Test CountWords 4 (Only Spaces): Original: '%s'\n", str);
+    result = countWordsInString(str);
+    printf("Expected: 0\n");
+    printf("Got     : %d\n\n", result);
+}
+
+void testCountWordsEmpty(void) 
+{
+    char str[] = "";
+    int result;
+
+    printf("Test CountWords 5 (Empty String): Original: '%s'\n", str);
+    result = countWordsInString(str);
+    printf("Expected: 0\n");
+    printf("Got     : %d\n\n", result);
+}
+
+void testCountWordsNull(void) 
+{
+    int result;
+
+    printf("Test CountWords 6 (NULL Pointer):\n");
+    result = countWordsInString(NULL);
+    printf("Expected Result: %d (ERROR code)\n", ERROR);
+    printf("Got Result     : %d\n\n", result);
 }

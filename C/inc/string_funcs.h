@@ -55,4 +55,13 @@ int MyIToA(int _num, char *_buffer);
 
 int ReverseWordsInString(char* _str);
 
+/*
+ * Description: A function that counts the number of words in a string of words
+ * Expected Input: An array of characters
+ * Expected Output: Returns integer indicating number of words
+ * Return: Number of words counted or -1 for empty string.
+ */
+
+int countWordsInString(char* _str);
+
 #endif
