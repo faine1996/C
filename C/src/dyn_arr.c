@@ -5,6 +5,7 @@
 
 static int paraCheck(const void *ptr);
 static int inputCheck(int size, int blockSize);
+static int increaseArraySize(struct DynamicArray *DynamicArrayPtr);
 
 struct DynamicArray* DynamicArrayCreate(int size, int blockSize)
 {
@@ -54,9 +55,8 @@ void DynamicArrayDestroy(struct DynamicArray *DynamicArrayPtr)
 int DynamicArrayInsert(struct DynamicArray *DynamicArrayPtr, int data)
 {
     int resized_flag;
-    int new_capacity;
-    void *temp_ptr;
     int target_index;
+    int status;
 
     resized_flag = 0;
 
@@ -67,18 +67,14 @@ int DynamicArrayInsert(struct DynamicArray *DynamicArrayPtr, int data)
 
     if (DynamicArrayPtr->NumOfElements == DynamicArrayPtr->dArraySize)
     {
-        new_capacity = DynamicArrayPtr->dArraySize + DynamicArrayPtr->dArrayBlockSize;
-
-        temp_ptr = (int*)realloc(DynamicArrayPtr->dArray, new_capacity * sizeof(int));
-
-        if (NULL == temp_ptr)
+        status = increaseArraySize(DynamicArrayPtr);
+        
+        if (DARRAY_OK != status)
         {
-            printf("Reallocation failed, old array still intact cannot insert new element");
-            return DARRAY_OVERFLOW;
+            printf("Reallocation failed, old array still intact cannot insert new element\n");
+            return status;
         }
 
-        DynamicArrayPtr->dArray = temp_ptr;
-        DynamicArrayPtr->dArraySize = new_capacity;
         resized_flag = 1;
     }
 
@@ -141,4 +137,27 @@ static int inputCheck(int size, int blockSize)
     return DARRAY_OK;
 }
 
+static int increaseArraySize(struct DynamicArray *DynamicArrayPtr)
+{
+    int new_capacity;
+    void *temp_ptr;
+
+    if (DynamicArrayPtr->dArrayBlockSize <= 0)
+    {
+        return DARRAY_OVERFLOW;
+    }
+
+    new_capacity = DynamicArrayPtr->dArraySize + DynamicArrayPtr->dArrayBlockSize;
+    temp_ptr = realloc(DynamicArrayPtr->dArray, new_capacity * sizeof(int));
+
+    if (NULL == temp_ptr)
+    {
+        return DARRAY_OVERFLOW;
+    }
+
+    DynamicArrayPtr->dArray = temp_ptr;
+    DynamicArrayPtr->dArraySize = new_capacity;
+
+    return DARRAY_OK;
+}
 
