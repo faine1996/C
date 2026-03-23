@@ -1,10 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "../inc/text_ex.h"
 
 #define MAX_LINE_LEN 1024
+
+static void init_counters(unsigned long* lines, unsigned long* words, unsigned long* chars);
 
 void tail(FILE* in, int n)
 {
@@ -84,4 +87,62 @@ void tail(FILE* in, int n)
         free(ring_buffer[i]);
     }
     free(ring_buffer);
+}
+
+void wc(FILE* fp, unsigned long* lines, unsigned long* words, unsigned long* chars)
+{
+    int c;
+    int in_word = 0;
+
+    init_counters(lines, words, chars);
+
+    if (NULL == fp)
+    {
+        return;
+    }
+
+    while (EOF != (c = fgetc(fp)))
+    {
+        if (NULL != chars)
+        {
+            ++(*chars);
+        }
+
+        if ('\n' == c)
+        {
+            if (NULL != lines)
+            {
+                ++(*lines);
+            }
+        }
+
+        if (isspace(c))
+        {
+            in_word = 0;
+        }
+        else if (!in_word)
+        {
+            in_word = 1;
+            if (NULL != words)
+            {
+                ++(*words);
+            }
+        }
+    }
+}
+
+static void init_counters(unsigned long* lines, unsigned long* words, unsigned long* chars)
+{
+    if (NULL != lines)
+    {
+        *lines = 0;
+    }
+    if (NULL != words)
+    {
+        *words = 0;
+    }
+    if (NULL != chars)
+    {
+        *chars = 0;
+    }
 }
