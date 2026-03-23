@@ -41,6 +41,15 @@ least significant bit are swapped.
 
 unsigned int ReverseBits(unsigned int x);
 
+/*
+ * Description:A function that reverse the bits in an integer, so that the most significant bit and the
+least significant bit are swapped using a lookup table.
+ * Expected Input: Unsigned char x.
+ * Expected Output: The bit result in binary form.
+ * Return: The modified integer.
+ */
+unsigned int ReverseBitsLUT(unsigned int x);
+
 void PrintBinary(unsigned char val);
 void PrintBinaryInt(unsigned int val);
 
