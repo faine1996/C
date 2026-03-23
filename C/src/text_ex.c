@@ -25,7 +25,7 @@ void tail(FILE* in, int n)
 
     /* 1. Allocate the circular buffer (Array of strings) */
     ring_buffer = (char **)malloc(n * sizeof(char *));
-    if (ring_buffer == NULL)
+    if (NULL == ring_buffer)
     {
         perror("Failed to allocate string array");
         return;
@@ -57,7 +57,7 @@ void tail(FILE* in, int n)
 
         /* Advance the index, wrapping around to 0 if we hit n */
         current = (current + 1) % n;
-        total_lines++;
+        ++total_lines;
     }
 
     /* 3. Determine where to start printing */
