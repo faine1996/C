@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include "../inc/bit_ops.h"
 
+static unsigned char ReverseByteDynamicLUT(unsigned char b);
+
 unsigned char InvertBits(unsigned char x)
 {
     unsigned char y;
@@ -53,10 +55,31 @@ unsigned int ReverseBits(unsigned int x)
     result = 0;
     num_bits = sizeof(x) * BITS_IN_BYTE;
 
-    for (i = 0; i < num_bits; i++)
+    for (i = 0; i < num_bits; ++i)
     {
         result = (result << 1) | (x & 1);
         x >>= 1;
+    }
+
+    return result;
+}
+
+unsigned int ReverseBitsLUT(unsigned int x)
+{
+    unsigned int result;
+    int i;
+    int num_bytes;
+    unsigned char current_byte;
+    unsigned char reversed_byte;
+
+    result = 0;
+    num_bytes = sizeof(x);
+
+    for (i = 0; i < num_bytes; ++i)
+    {
+        current_byte = (unsigned char)((x >> (i * BITS_IN_BYTE)) & 0xFF);
+        reversed_byte = ReverseByteDynamicLUT(current_byte);
+        result |= ((unsigned int)reversed_byte << ((num_bytes - 1 - i) * BITS_IN_BYTE));
     }
 
     return result;
@@ -66,7 +89,7 @@ void PrintBinary(unsigned char val)
 {
     int i;
     
-    for (i = 7; i >= 0; i--)
+    for (i = 7; i >= 0; --i)
     {
         printf("%d", (val >> i) & 1);
     }
@@ -79,8 +102,38 @@ void PrintBinaryInt(unsigned int val)
 
     num_bits = sizeof(val) * BITS_IN_BYTE;
     
-    for (i = num_bits - 1; i >= 0; i--)
+    for (i = num_bits - 1; i >= 0; --i)
     {
         printf("%d", (val >> i) & 1);
     }
+}
+
+static unsigned char ReverseByteDynamicLUT(unsigned char b)
+{
+    static unsigned char lut[256];
+    static int initialized = 0;
+    int i;
+    int j;
+    unsigned char val;
+    unsigned char reversed_val;
+
+    if (0 == initialized)
+    {
+        for (i = 0; i < 256; ++i)
+        {
+            val = (unsigned char)i;
+            reversed_val = 0;
+            
+            for (j = 0; j < 8; j++)
+            {
+                reversed_val = (unsigned char)((reversed_val << 1) | (val & 1));
+                val >>= 1;
+            }
+            
+            lut[i] = reversed_val;
+        }
+        initialized = 1;
+    }
+
+    return lut[b];
 }

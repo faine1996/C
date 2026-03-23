@@ -5,6 +5,7 @@ void testInvertBitsNormal(void);
 void testRotateRightNormal(void);
 void testSetBitsNormal(void);
 void testReverseBitsNormal(void);
+void testReverseBitsLUTNormal(void);
 
 int main(void)
 {
@@ -14,6 +15,7 @@ int main(void)
     testRotateRightNormal();
     testSetBitsNormal();
     testReverseBitsNormal();
+    testReverseBitsLUTNormal();
 
     printf("\n--- All Tests Complete ---\n");
     return 0;
@@ -99,6 +101,27 @@ void testReverseBitsNormal(void)
 
     printf("Test ReverseBits 1: Reversing 0xF0F0F0F0\n");
     result = ReverseBits(input);
+
+    printf("Expected: 0x%08X, Binary: ", expected);
+    PrintBinaryInt(expected);
+    printf("\n");
+
+    printf("Got     : 0x%08X, Binary: ", result);
+    PrintBinaryInt(result);
+    printf("\n\n");
+}
+
+void testReverseBitsLUTNormal(void)
+{
+    unsigned int input;
+    unsigned int expected;
+    unsigned int result;
+
+    input = 0x12345678;
+    expected = 0x1E6A2C48;
+
+    printf("Test ReverseBitsLUT 1: Reversing 0x12345678 using Dynamic LUT\n");
+    result = ReverseBitsLUT(input);
 
     printf("Expected: 0x%08X, Binary: ", expected);
     PrintBinaryInt(expected);
