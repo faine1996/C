@@ -1,119 +1,255 @@
-#ifndef __VECTOR_H__
-#define __VECTOR_H__
+#include <stdlib.h>
+#include "../inc/genvector.h"
 
-#include <stddef.h>  /* size_t */
+struct Vector {
+    void **items;
+    size_t originalCapacity;
+    size_t capacity;
+    size_t size;
+    size_t blockSize;
+};
 
-typedef struct Vector Vector;
-typedef int	(*VectorElementAction)(void* _element, size_t _index, void* _context);
+static VectorResult VectorGrow(Vector* _vector);
+static VectorResult VectorShrink(Vector* _vector);
 
-typedef enum Vector_Result {
-	VECTOR_SUCCESS,
-	VECTOR_UNITIALIZED_ERROR,				/**< Uninitialized vector error 	*/
-	VECTOR_ALLOCATION_ERROR,				/**< realloc error on grow/shrink   */
-	VECTOR_INDEX_OUT_OF_BOUNDS_ERROR
-	/* Add more as needed by your implementation */
-} VectorResult;
+Vector* VectorCreate(size_t _initialCapacity, size_t _blockSize)
+{
+    Vector *vec = NULL;
+    
+    if (0 == _initialCapacity && 0 == _blockSize)
+    {
+        return NULL;
+    }
+    
+    vec = (Vector*)malloc(sizeof(Vector));
+    if (NULL == vec)
+    {
+        return NULL;
+    }
+    
+    if (0 == _initialCapacity)
+    {
+        vec->items = NULL;
+    }
+    else
+    {
+        vec->items = (void**)malloc(_initialCapacity * sizeof(void*));
+        if (NULL == vec->items)
+        {
+            free(vec);
+            return NULL;
+        }
+    }
+    
+    vec->originalCapacity = _initialCapacity;
+    vec->capacity = _initialCapacity;
+    vec->size = 0;
+    vec->blockSize = _blockSize;
+    
+    return vec;
+}
 
-/**  
- * @brief Dynamically create a new vector object of given capacity and  
- * @param[in] _initialCapacity - initial capacity, number of elements that can be stored initially
- * @param[in] _blockSize - the vector will grow or shrink on demand by this size 
- * @return Vector * - on success / NULL on fail 
- *
- * @warning if _blockSize is 0 the vector will be of fixed size. 
- * @warning if both _initialCapacity and _blockSize are zero function will return NULL.
- */
-Vector* VectorCreate(size_t _initialCapacity, size_t _blockSize);
+void VectorDestroy(Vector** _vector, void (*_elementDestroy)(void* _item))
+{
+    size_t i = 0;
+    
+    if (NULL != _vector && NULL != *_vector)
+    {
+        if (NULL != _elementDestroy)
+        {
+            for (i = 0; (*_vector)->size > i; ++i)
+            {
+                _elementDestroy((*_vector)->items[i]);
+            }
+        }
+        
+        if (NULL != (*_vector)->items)
+        {
+            free((*_vector)->items);
+        }
+        
+        free(*_vector);
+        *_vector = NULL;
+    }
+}
 
-/**  
- * @brief Dynamically deallocate a previously allocated vector  
- * @param[in] _vector - Vector to be deallocated.
- * @params[in] _elementDestroy : A function pointer to be used to destroy all elements in the vector
- *             or a null if no such destroy is required
- * @return void
- */
-void VectorDestroy(Vector** _vector, void (*_elementDestroy)(void* _item));
+VectorResult VectorAppend(Vector* _vector, void* _item)
+{
+    VectorResult result = VECTOR_SUCCESS;
+    
+    if (NULL == _vector)
+    {
+        return VECTOR_UNITIALIZED_ERROR;
+    }
+    
+    if (_vector->size == _vector->capacity)
+    {
+        result = VectorGrow(_vector);
+        if (VECTOR_SUCCESS != result)
+        {
+            return result;
+        }
+    }
+    
+    _vector->items[_vector->size] = _item;
+    _vector->size++;
+    
+    return VECTOR_SUCCESS;
+}
 
-/**  
- * @brief Add an Item to the back of the Vector.  
- * @param[in] _vector - Vector to append integer to.
- * @param[in] _item - Item to add.
- * @return success or error code 
- * @retval VECTOR_SUCCESS on success 
- * @retval VECTOR_.... 
- * (cover all possibilities) 
- */
-VectorResult VectorAppend(Vector* _vector, void* _item);
+VectorResult VectorRemove(Vector* _vector, void** _pValue)
+{
+    if (NULL == _vector || NULL == _pValue)
+    {
+        return VECTOR_UNITIALIZED_ERROR;
+    }
+    
+    if (0 == _vector->size)
+    {
+        return VECTOR_INDEX_OUT_OF_BOUNDS_ERROR;
+    }
+    
+    *_pValue = _vector->items[_vector->size - 1];
+    _vector->size--;
+    
+    VectorShrink(_vector);
+    
+    return VECTOR_SUCCESS;
+}
 
-/**  
- * @brief Delete an Element from the back of the Vector.  
- * @param[in] _vector - Vector to delete integer from.
- * @param[out] _pValue - pointer to variable that will receive deleted item value
- * @return success or error code 
- * @retval VECTOR_SUCCESS on success 
- * @retval VECTOR_.... 
- * (cover all possibilities) 
- * @warning _item can't be null. this will be assertion violation
- */
-VectorResult VectorRemove(Vector* _vector, void** _pValue);
+VectorResult VectorGet(const Vector* _vector, size_t _index, void** _pValue)
+{
+    if (NULL == _vector || NULL == _pValue)
+    {
+        return VECTOR_UNITIALIZED_ERROR;
+    }
+    
+    if (_vector->size <= _index)
+    {
+        return VECTOR_INDEX_OUT_OF_BOUNDS_ERROR;
+    }
+    
+    *_pValue = _vector->items[_index];
+    
+    return VECTOR_SUCCESS;
+}
 
-/**  
- * @brief Get value of item at specific index from the the Vector 
- * @param[in] _vector - Vector to use.
- * @param[in] _index - index of item to get value from. the index of first elemnt is 0
- * @param[out] _pValue - pointer to variable that will recieve the item's value.
- * @return success or error code 
- * @retval VECTOR_SUCCESS on success 
- * @retval VECTOR_.... (cover all possibilities) 
- *
- * 
- */
-VectorResult VectorGet(const Vector* _vector, size_t _index, void** _pValue);
+VectorResult VectorSet(Vector* _vector, size_t _index, void* _value)
+{
+    if (NULL == _vector)
+    {
+        return VECTOR_UNITIALIZED_ERROR;
+    }
+    
+    if (_vector->size <= _index)
+    {
+        return VECTOR_INDEX_OUT_OF_BOUNDS_ERROR;
+    }
+    
+    _vector->items[_index] = _value;
+    
+    return VECTOR_SUCCESS;
+}
 
-/**  
- * @brief Set an item at specific index to a new value.
- * @param[in] _vector - Vector to use.
- * @param[in] _index - index of an existing item.
- * @param[in] _value - new value to set.
- * @return success or error code 
- * @retval VECTOR_SUCCESS on success 
- * @retval VECTOR_.... (cover all possibilities) 
- *
- * 
- */
-VectorResult VectorSet(Vector* _vector, size_t _index, void*  _value);
+size_t VectorSize(const Vector* _vector)
+{
+    if (NULL == _vector)
+    {
+        return 0;
+    }
+    
+    return _vector->size;
+}
 
-/**  
- * @brief Get the number of actual items currently in the vector.
- * @param[in] _vector - Vector to use.
- * @return  number of items on success 0 if vector is empty or invalid			
- */
-size_t VectorSize(const Vector* _vector);
+size_t VectorCapacity(const Vector* _vector)
+{
+    if (NULL == _vector)
+    {
+        return 0;
+    }
+    
+    return _vector->capacity;
+}
 
-/**  
- * @brief Get the current capacity of the  vector.
- * @param[in] _vector - Vector to use.
- * @return  capacity of vector			
- */
-size_t VectorCapacity(const Vector* _vector);
+size_t VectorForEach(const Vector* _vector, VectorElementAction _action, void* _context)
+{
+    size_t i = 0;
+    
+    if (NULL == _vector || NULL == _action)
+    {
+        return 0;
+    }
+    
+    for (i = 0; _vector->size > i; ++i)
+    {
+        if (0 == _action(_vector->items[i], i, _context))
+        {
+            break;
+        }
+    }
+    
+    return i;
+}
 
+static VectorResult VectorGrow(Vector* _vector)
+{
+    void **newItems = NULL;
+    size_t newCapacity = 0;
+    
+    if (0 == _vector->blockSize)
+    {
+        return VECTOR_ALLOCATION_ERROR;
+    }
+    
+    newCapacity = _vector->capacity + _vector->blockSize;
+    newItems = (void**)realloc(_vector->items, newCapacity * sizeof(void*));
+    
+    if (NULL == newItems)
+    {
+        return VECTOR_ALLOCATION_ERROR;
+    }
+    
+    _vector->items = newItems;
+    _vector->capacity = newCapacity;
+    
+    return VECTOR_SUCCESS;
+}
 
-/**  
- * @brief Iterate over all elements in the vector.
- * @details The user provided _action function will be called for each element
- *          if _action return a zero for an element the iteration will stop.  
- * @param[in] _vector - vector to iterate over.
- * @param[in] _action - User provided function pointer to be invoked for each element
- * @param[in] _context - User provided context, will be sent to _action
- * @returns number of times the user functions was invoked
- * equevallent to:
- *      for(i = 0; i < VectorSize(v); ++i){
- *             VectorGet(v, i, &elem);
- *             if(_action(elem, i, _context) == 0)
- *					break;	
- *      }
- *		return i;
- */
-size_t VectorForEach(const Vector* _vector, VectorElementAction _action, void* _context);
-
-#endif /* __VECTOR_H__ */
+static VectorResult VectorShrink(Vector* _vector)
+{
+    void **newItems = NULL;
+    size_t newCapacity = 0;
+    size_t emptySpaces = 0;
+    
+    if (0 == _vector->blockSize)
+    {
+        return VECTOR_SUCCESS;
+    }
+    
+    emptySpaces = _vector->capacity - _vector->size;
+    
+    if ((_vector->blockSize * 2) <= emptySpaces)
+    {
+        newCapacity = _vector->capacity - _vector->blockSize;
+        
+        if (_vector->originalCapacity > newCapacity)
+        {
+            newCapacity = _vector->originalCapacity;
+        }
+        
+        if (newCapacity == _vector->capacity)
+        {
+            return VECTOR_SUCCESS;
+        }
+        
+        newItems = (void**)realloc(_vector->items, newCapacity * sizeof(void*));
+        
+        if (NULL != newItems)
+        {
+            _vector->items = newItems;
+            _vector->capacity = newCapacity;
+        }
+    }
+    
+    return VECTOR_SUCCESS;
+}
