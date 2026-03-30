@@ -10,6 +10,7 @@ int Small2Big(int first, int second);
 int Big2Small(int first, int second);
 int EvensFirst(int first, int second);
 int OddsFirst(int first, int second);
+int Sort(int *arr, int size, s_criteria CR);
 
 #define BUBBLE_SORT_MACRO(arr, size) \
     do \
