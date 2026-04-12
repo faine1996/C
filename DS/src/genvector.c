@@ -124,7 +124,7 @@ VectorResult VectorGet(const Vector* _vector, size_t _index, void** _pValue)
         return VECTOR_UNITIALIZED_ERROR;
     }
     
-    if (_vector->size <= _index)
+    if (_vector->size < _index)
     {
         return VECTOR_INDEX_OUT_OF_BOUNDS_ERROR;
     }
