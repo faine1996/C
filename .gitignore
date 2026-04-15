@@ -4,6 +4,15 @@
 *.exe
 *.bin
 *.elf
+obj/
+
+# --- Project Executables ---
+test_*_runner
+test_runner
+
+# --- Build Directories ---
+bin/
+build/
 
 # --- VS Code ---
 .vscode/
@@ -15,7 +24,3 @@
 # --- Security Fail-Safes ---
 ReichmanEmbedded
 ReichmanEmbedded.pub
-
-# --- Build Directories ---
-bin/
-build/
