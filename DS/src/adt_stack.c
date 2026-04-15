@@ -1,129 +1,120 @@
 #include <stdlib.h>
 #include "../inc/adt_stack.h"
 
+#define MAGIC_NUMBER 0xBEEFCAFE
+#define DEAD_MAGIC_NUMBER 0xDEADBEEF
+
 struct Stack
 {
-    char* data;
-    size_t size;
-    size_t capacity;
+    int* m_items;
+    size_t m_capacity;
+    size_t m_nItems;
+    unsigned int m_magicNumber;
 };
 
-/* --- Static Helper Declarations --- */
-static int expandCapacity(Stack* _stack);
+/* ========================================================== */
+/* Helper Functions                                           */
+/* ========================================================== */
 
-/* --- Main API Functions --- */
+static int IsValidStack(const Stack* _stack)
+{
+    return (_stack != NULL && _stack->m_magicNumber == MAGIC_NUMBER);
+}
+
+static int IsStackFull(const Stack* _stack)
+{
+    return (_stack->m_nItems == _stack->m_capacity);
+}
+
+/* ========================================================== */
+/* API Functions                                              */
+/* ========================================================== */
 
 Stack* StackCreate(size_t _initialCapacity)
 {
-    Stack* stack = NULL;
-    
-    if (0 == _initialCapacity)
+    Stack* newStack;
+
+    if (_initialCapacity == 0)
     {
         return NULL;
     }
 
-    stack = (Stack*)malloc(sizeof(Stack));
-    
-    if (NULL == stack)
+    newStack = (Stack*)malloc(sizeof(Stack));
+    if (newStack == NULL)
     {
         return NULL;
     }
 
-    stack->data = (char*)malloc(_initialCapacity * sizeof(char));
-    
-    if (NULL == stack->data)
+    newStack->m_items = (int*)malloc(_initialCapacity * sizeof(int));
+    if (newStack->m_items == NULL)
     {
-        free(stack);
+        free(newStack);
         return NULL;
     }
 
-    stack->size = 0;
-    stack->capacity = _initialCapacity;
+    newStack->m_capacity = _initialCapacity;
+    newStack->m_nItems = 0;
+    newStack->m_magicNumber = MAGIC_NUMBER;
 
-    return stack;
+    return newStack;
 }
 
 void StackDestroy(Stack** _stack)
 {
-    if (NULL != _stack && NULL != *_stack)
+    if (_stack == NULL || !IsValidStack(*_stack))
     {
-        free((*_stack)->data);
-        free(*_stack);
-        *_stack = NULL;
+        return;
     }
+
+    (*_stack)->m_magicNumber = DEAD_MAGIC_NUMBER;
+    
+    free((*_stack)->m_items);
+    free(*_stack);
+    *_stack = NULL;
 }
 
 StackResult StackPush(Stack* _stack, int _item)
 {
-    if (NULL == _stack)
+    if (!IsValidStack(_stack))
     {
         return STACK_UNINITIALIZED_ERROR;
     }
 
-    if (_stack->size == _stack->capacity)
+    if (IsStackFull(_stack))
     {
-        if (0 == expandCapacity(_stack))
-        {
-            return STACK_OVERFLOW_ERROR;
-        }
+        return STACK_OVERFLOW_ERROR;
     }
 
-    _stack->data[_stack->size] = _item;
-    _stack->size++;
-    
+    _stack->m_items[_stack->m_nItems] = _item;
+    _stack->m_nItems++;
+
     return STACK_SUCCESS;
 }
 
 StackResult StackPop(Stack* _stack, int* _item)
 {
-    if (NULL == _stack || NULL == _item)
+    if (!IsValidStack(_stack) || _item == NULL)
     {
         return STACK_UNINITIALIZED_ERROR;
     }
 
-    if (0 == _stack->size)
+    if (StackIsEmpty(_stack))
     {
         return STACK_DATA_NOT_FOUND_ERROR;
     }
 
-    _stack->size--;
-    *_item = _stack->data[_stack->size];
-    
+    _stack->m_nItems--;
+    *_item = _stack->m_items[_stack->m_nItems];
+
     return STACK_SUCCESS;
 }
 
 size_t StackIsEmpty(const Stack* _stack)
 {
-    if (NULL == _stack)
+    if (!IsValidStack(_stack))
     {
-        return 1;
+        return 1; /* Treat invalid as empty */
     }
     
-    return (0 == _stack->size) ? 1 : 0;
-}
-
-/* --- Helper Function Definitions --- */
-
-static int expandCapacity(Stack* _stack)
-{
-    size_t newCapacity = 0;
-    char* newData = NULL;
-
-    if (NULL == _stack)
-    {
-        return 0;
-    }
-
-    newCapacity = _stack->capacity * 2;
-    newData = (char*)realloc(_stack->data, newCapacity * sizeof(char));
-    
-    if (NULL == newData)
-    {
-        return 0;
-    }
-    
-    _stack->data = newData;
-    _stack->capacity = newCapacity;
-    
-    return 1;
+    return (_stack->m_nItems == 0) ? 1 : 0;
 }
