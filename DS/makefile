@@ -4,16 +4,22 @@ SRC_DIR = src
 TEST_DIR = test
 OBJ_DIR = obj
 
-# Define our two output executables
+# 1. Define our output executables
 TARGET_EXPR = test_expr_runner
 TARGET_STACK = test_stack_runner
+TARGET_PERSON = test_person_runner   # <--- Added new target
 
-# Define the specific object files needed for each executable
+# 2. Define specific object files for each executable
 OBJS_EXPR = $(OBJ_DIR)/expression_parser.o $(OBJ_DIR)/adt_stack.o $(OBJ_DIR)/test_expression_parser.o
 OBJS_STACK = $(OBJ_DIR)/adt_stack.o $(OBJ_DIR)/test_adt_stack.o
+OBJS_PERSON = $(OBJ_DIR)/person_list.o $(OBJ_DIR)/test_person_list.o  # <--- Added new objects
 
-# 'all' builds everything by depending on both targets
-all: $(TARGET_EXPR) $(TARGET_STACK)
+# 'all' builds everything by depending on all targets
+all: $(TARGET_EXPR) $(TARGET_STACK) $(TARGET_PERSON)
+
+# Link the Person List test runner
+$(TARGET_PERSON): $(OBJS_PERSON)
+	$(CC) $(CFLAGS) -o $@ $^
 
 # Link the Expression Parser test runner
 $(TARGET_EXPR): $(OBJS_EXPR)
@@ -35,4 +41,4 @@ $(OBJ_DIR)/%.o: $(TEST_DIR)/%.c
 
 # Clean up all generated files
 clean:
-	rm -rf $(OBJ_DIR) $(TARGET_EXPR) $(TARGET_STACK) test_runner
+	rm -rf $(OBJ_DIR) $(TARGET_EXPR) $(TARGET_STACK) $(TARGET_PERSON)
