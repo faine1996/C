@@ -121,6 +121,24 @@ Person* ListRemoveByKey(Person* _head, int _key, Person** _p)
     return _head;
 }
 
+Person* GetLastNodeRecursive(Person* _head)
+{
+    /* Base Case 1: Empty list */
+    if (NULL == _head)
+    {
+        return NULL;
+    }
+
+    /* Base Case 2: Last node found (no next node) */
+    if (NULL == _head->next)
+    {
+        return _head;
+    }
+
+    /* Recursive Step: Move to the next node */
+    return GetLastNodeRecursive(_head->next);
+}
+
 /* Helper Definitions */
 
 static int IsDuplicate(Person* _head, int _key)
