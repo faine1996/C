@@ -42,4 +42,11 @@ Person* ListInsertByKey(Person* _head, int _key, Person* _p);
  */
 Person* ListRemoveByKey(Person* _head, int _key, Person** _p);
 
+/**
+ * @brief Recursively find the last node in the list
+ * @param[in] _head - The current node being inspected
+ * @return Person pointer - Pointer to the last node, or NULL if list is empty
+ */
+Person* GetLastNodeRecursive(Person* _head);
+
 #endif /* __PERSON_LIST_H__ */

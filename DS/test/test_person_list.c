@@ -9,6 +9,7 @@ void Test_InsertHead(void);
 void Test_InsertByKey_Sorting(void);
 void Test_DuplicatePrevention(void);
 void Test_RemoveByKey(void);
+void Test_GetLastNodeRecursive(void);
 static Person* CreatePerson(int _id, const char* _name);
 
 int main(void)
@@ -19,6 +20,7 @@ int main(void)
     Test_InsertByKey_Sorting();
     Test_DuplicatePrevention();
     Test_RemoveByKey();
+    Test_GetLastNodeRecursive();
 
     printf("All Linked List tests passed!\n");
 
@@ -134,6 +136,50 @@ void Test_RemoveByKey(void)
     free(p2);
 
     printf("  [PASS] Test_RemoveByKey\n");
+}
+
+void Test_GetLastNodeRecursive(void)
+{
+    Person* head;
+    Person* last;
+    Person* p1;
+    Person* p2;
+    Person* p3;
+
+    head = NULL;
+
+    /* Case 1: Empty List - Should return NULL */
+    last = GetLastNodeRecursive(head);
+    assert(NULL == last);
+
+    /* Case 2: Single Node - Should return itself */
+    p1 = CreatePerson(10, "Solitary");
+    head = ListInsertHead(head, p1);
+    
+    last = GetLastNodeRecursive(head);
+    assert(p1 == last);
+    assert(10 == last->id);
+
+    /* Case 3: Multiple Nodes - Should find the original tail */
+    /* List currently: 10 */
+    p2 = CreatePerson(20, "Middle");
+    p3 = CreatePerson(30, "NewHead");
+    
+    head = ListInsertHead(head, p2); /* List: 20 -> 10 */
+    head = ListInsertHead(head, p3); /* List: 30 -> 20 -> 10 */
+
+    last = GetLastNodeRecursive(head);
+    
+    /* Yoda comparison to check if we found p1 (the first one added) */
+    assert(p1 == last);
+    assert(0 == strcmp(last->name, "Solitary"));
+
+    /* Cleanup: User-allocated data in the Heap must be freed  */
+    free(p1);
+    free(p2);
+    free(p3);
+
+    printf("  [PASS] Test_GetLastNodeRecursive\n");
 }
 
 /* Helper Definitions */
