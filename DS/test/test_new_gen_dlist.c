@@ -34,10 +34,31 @@ void Test_BasicDList(void)
     printf("  [PASS] Basic DList Operations\n");
 }
 
+void Test_ItrSet(void)
+{
+    List* list;
+    int a = 100, b = 200;
+    void* old;
+    ListItr itr;
+
+    list = ListCreate();
+    itr = ListPushHead(list, &a); /* List: [100] */
+
+    /* Change 100 to 200 */
+    old = ListItrSet(itr, &b);
+    
+    assert(100 == *(int*)old);
+    assert(200 == *(int*)ListItrGet(itr));
+
+    ListDestroy(&list, NULL);
+    printf("  [PASS] ListItrSet Logic\n");
+}
+
 int main(void)
 {
     printf("Starting Generic DList Test Suite...\n");
     Test_BasicDList();
+    Test_ItrSet();
     printf("All DList tests passed!\n");
     return 0;
 }
