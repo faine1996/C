@@ -131,6 +131,24 @@ void* ListItrGet(ListItr _itr)
     return (NULL == n->m_next) ? NULL : n->m_item;
 }
 
+void* ListItrSet(ListItr _itr, void* _element)
+{
+    Node* n;
+    void* oldItem;
+
+    n = (Node*)_itr;
+
+    if (NULL == n->m_next)
+    {
+        return NULL;
+    }
+
+    oldItem = n->m_item;
+    n->m_item = _element;
+
+    return oldItem;
+}
+
 ListItr ListItrInsertBefore(ListItr _itr, void* _element)
 {
     Node* newNode;
