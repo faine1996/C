@@ -15,8 +15,7 @@
 
 typedef struct BSTree  BSTree;
 typedef void*  BSTreeItr;
-
-typedef int (*Comparator)(void* _left, void* _right);
+typedef int (*TreeComparator)(void* _left, void* _right);
 
 /** 
  * @brief Action function to operate on an element
@@ -25,7 +24,7 @@ typedef int (*Comparator)(void* _left, void* _right);
  * @param _context : context to be used
  * @return zero if action fails
  */
-typedef int (*ActionFunction)(void* _element, void* _context);
+typedef int (*TreeActionFunction)(void* _element, void* _context);
 
 typedef enum
 {
@@ -44,7 +43,7 @@ typedef enum
  * @return a pointer to the newly created tree.
  * @retval NULL on failure due to allocation failure or NULL function pointer given
  */
-BSTree* BSTreeCreate(Comparator _less);
+BSTree* BSTreeCreate(TreeComparator _less);
 
 /** 
  * @brief Destroy tree
@@ -133,6 +132,6 @@ void* BSTreeItrGet(BSTreeItr _it);
  * @params _context : Parameters for the function
  * @return Iterator to end or an iterator to the specific element where action returned none zero value
  */
-BSTreeItr BSTreeForEach(const BSTree* _tree, BSTreeTraversalMode _mode, ActionFunction _action, void* _context);
+BSTreeItr BSTreeForEach(const BSTree* _tree, BSTreeTraversalMode _mode, TreeActionFunction _action, void* _context);
 
 #endif /* __BSTREE_H__ */

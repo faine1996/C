@@ -14,7 +14,7 @@
 struct Heap
 {
     Vector* m_vector;
-    Comparator m_comp;
+    HeapComparator m_comp;
     size_t m_magicNumber;
 };
 
@@ -31,7 +31,7 @@ static int isHeapValid(const Heap* _heap);
 /*                              Main Functions                               */
 /* ========================================================================= */
 
-Heap* HeapBuild(Vector* _vector, Comparator _pfComp)
+Heap* HeapBuild(Vector* _vector, HeapComparator _pfComp)
 {
     Heap* heap;
     int i;
@@ -175,7 +175,7 @@ size_t HeapSize(const Heap* _heap)
     return VectorSize(_heap->m_vector);
 }
 
-size_t HeapForEach(const Heap* _heap, ActionFunction _act, void* _context)
+size_t HeapForEach(const Heap* _heap, HeapActionFunction _act, void* _context)
 {
     size_t i;
     size_t size;

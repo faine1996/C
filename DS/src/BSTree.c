@@ -14,7 +14,7 @@ struct Node
 struct BSTree
 {
     Node m_sentinel;
-    Comparator m_less;
+    TreeComparator m_less;
 };
 
 /* --- Helper Function Declarations --- */
@@ -24,13 +24,13 @@ static void DestroySubtree(Node* _root, void (*_destroyer)(void*));
 static Node* GetMostLeft(Node* _root);
 static Node* GetMostRight(Node* _root);
 static void RemoveNode(Node* _node);
-static BSTreeItr ForEachPreOrder(Node* _root, ActionFunction _action, void* _context);
-static BSTreeItr ForEachInOrder(Node* _root, ActionFunction _action, void* _context);
-static BSTreeItr ForEachPostOrder(Node* _root, ActionFunction _action, void* _context);
+static BSTreeItr ForEachPreOrder(Node* _root, TreeActionFunction _action, void* _context);
+static BSTreeItr ForEachInOrder(Node* _root, TreeActionFunction _action, void* _context);
+static BSTreeItr ForEachPostOrder(Node* _root, TreeActionFunction _action, void* _context);
 
 /* --- Core Functions --- */
 
-BSTree* BSTreeCreate(Comparator _less)
+BSTree* BSTreeCreate(TreeComparator _less)
 {
     BSTree* tree = NULL;
 
@@ -212,7 +212,7 @@ void* BSTreeItrRemove(BSTreeItr _it)
     return item;
 }
 
-BSTreeItr BSTreeForEach(const BSTree* _tree, BSTreeTraversalMode _mode, ActionFunction _action, void* _context)
+BSTreeItr BSTreeForEach(const BSTree* _tree, BSTreeTraversalMode _mode, TreeActionFunction _action, void* _context)
 {
     if (NULL == _tree || NULL == _action)
     {
@@ -322,7 +322,7 @@ static void RemoveNode(Node* _node)
     free(_node);
 }
 
-static BSTreeItr ForEachPreOrder(Node* _root, ActionFunction _action, void* _context)
+static BSTreeItr ForEachPreOrder(Node* _root, TreeActionFunction _action, void* _context)
 {
     BSTreeItr res = NULL;
     if (NULL == _root)
@@ -341,7 +341,7 @@ static BSTreeItr ForEachPreOrder(Node* _root, ActionFunction _action, void* _con
     return ForEachPreOrder(_root->m_right, _action, _context);
 }
 
-static BSTreeItr ForEachInOrder(Node* _root, ActionFunction _action, void* _context)
+static BSTreeItr ForEachInOrder(Node* _root, TreeActionFunction _action, void* _context)
 {
     BSTreeItr res = NULL;
     if (NULL == _root)
@@ -360,7 +360,7 @@ static BSTreeItr ForEachInOrder(Node* _root, ActionFunction _action, void* _cont
     return ForEachInOrder(_root->m_right, _action, _context);
 }
 
-static BSTreeItr ForEachPostOrder(Node* _root, ActionFunction _action, void* _context)
+static BSTreeItr ForEachPostOrder(Node* _root, TreeActionFunction _action, void* _context)
 {
     BSTreeItr res = NULL;
     if (NULL == _root)

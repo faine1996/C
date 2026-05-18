@@ -156,7 +156,7 @@ size_t QueueIsEmpty(Queue* _queue)
     return (_queue->m_nItems == 0);
 }
 
-size_t QueueForEach(Queue* _queue, ActionFunction _action, void* _context)
+size_t QueueForEach(Queue* _queue, QueueActionFunction _action, void* _context)
 {
     size_t i;
     size_t currentIndex;
