@@ -13,8 +13,8 @@ typedef enum Heap_ResultCode {
 typedef struct Heap Heap;
 
 
-typedef int	(*ActionFunction)(const void *_elem, void * _context);
-typedef int	(*Comparator)(const void *_left, const void *_right);
+typedef int	(*HeapActionFunction)(const void *_elem, void * _context);
+typedef int	(*HeapComparator)(const void *_left, const void *_right);
 
 /**  
  * @brief Dynamically create a new heap  
@@ -25,7 +25,7 @@ typedef int	(*Comparator)(const void *_left, const void *_right);
  *
  * @warning allocating and freeing the underlying vector is user responsibility. 
  */
-Heap* HeapBuild(Vector* _vector, Comparator _pfComp);
+Heap* HeapBuild(Vector* _vector, HeapComparator _pfComp);
 
 /**  
  * @brief Deallocate a previously allocated heap
@@ -74,7 +74,7 @@ size_t HeapSize(const Heap* _heap);
  * @param[in] _act - User provided function pointer to be onvoked for each element
  * @returns number of times the user functions was invoked
  */
-size_t HeapForEach(const Heap* _heap, ActionFunction _act, void* _context);
+size_t HeapForEach(const Heap* _heap, HeapActionFunction _act, void* _context);
 
 
 #endif /*__GENHEAP_H__*/

@@ -14,7 +14,7 @@ typedef enum{
 typedef struct Queue Queue;
 
 typedef void (*DestroyItem)(void* _element);
-typedef int (*ActionFunction)(void* _element, void* _context);
+typedef int (*QueueActionFunction)(void* _element, void* _context);
 
 /**
  * @brief Create a new queue with a size of _size
@@ -73,6 +73,6 @@ size_t QueueIsEmpty(Queue* _queue);
  *
  * @details if action returns 0 stop running and return the number of times action run
  */
-size_t QueueForEach(Queue* _queue, ActionFunction _action, void* _context);
+size_t QueueForEach(Queue* _queue, QueueActionFunction _action, void* _context);
 
 #endif 		/*__GENQUEUE_H__*/
