@@ -5,15 +5,14 @@ CFLAGS = -ansi -pedantic -Wall -Wextra -I./inc
 # Target Names
 APP_TARGET = shell_app
 TEST_TARGET = shell_test
+PINGPONG_TARGET = pingpong_test
 
-# Source Files
-SRC_FILES = src/shell.c
-MAIN_FILE = src/main.c
-TEST_FILE = test/test_shell.c
-
-# Object Files
+# Object Files for Shell
 OBJ_FILES = src/shell.o src/main.o
 TEST_OBJ_FILES = src/shell.o test/test_shell.o
+
+# Object Files for Ping-Pong
+PINGPONG_OBJ_FILES = src/pingpong.o test/test_pingpong.o
 
 # Default target: builds the actual shell
 all: $(APP_TARGET)
@@ -22,12 +21,19 @@ all: $(APP_TARGET)
 $(APP_TARGET): $(OBJ_FILES)
 	$(CC) $(CFLAGS) -o $(APP_TARGET) $(OBJ_FILES)
 
-# Build the Test Suite
+# Build and run the Shell Test Suite
 test: $(TEST_TARGET)
 	./$(TEST_TARGET)
 
 $(TEST_TARGET): $(TEST_OBJ_FILES)
 	$(CC) $(CFLAGS) -o $(TEST_TARGET) $(TEST_OBJ_FILES)
+
+# Build and run the Ping-Pong Test Suite
+test_pingpong: $(PINGPONG_TARGET)
+	./$(PINGPONG_TARGET)
+
+$(PINGPONG_TARGET): $(PINGPONG_OBJ_FILES)
+	$(CC) $(CFLAGS) -o $(PINGPONG_TARGET) $(PINGPONG_OBJ_FILES)
 
 # Pattern rule for object files
 %.o: %.c
@@ -35,4 +41,4 @@ $(TEST_TARGET): $(TEST_OBJ_FILES)
 
 # Cleanup
 clean:
-	rm -f src/*.o test/*.o $(APP_TARGET) $(TEST_TARGET)
+	rm -f src/*.o test/*.o $(APP_TARGET) $(TEST_TARGET) $(PINGPONG_TARGET)
