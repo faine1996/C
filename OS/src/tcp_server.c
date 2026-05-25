@@ -25,7 +25,7 @@ int main()
     optval = 1;
     if (0> setsockopt(sock,SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)))
     {
-        perror("Reuse port in server failed.\n");
+        perror("Setsock() in server failed.\n");
         abort();
     }
 
