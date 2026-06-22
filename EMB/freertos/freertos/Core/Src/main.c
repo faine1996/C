@@ -148,8 +148,8 @@ int main(void)
         osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
     /* USER CODE BEGIN RTOS_THREADS */
-    led1TaskHandle = osThreadNew(Task_LED1, NULL, &led1_attr);
-    led2TaskHandle = osThreadNew(Task_LED2, NULL, &led2_attr);
+    led1TaskHandle = osThreadNew(Task_LED, &led1_params, &led1_attr);
+    led2TaskHandle = osThreadNew(Task_LED, &led2_params, &led2_attr);
     reporterTaskHandle = osThreadNew(Task_Reporter, NULL, &reporter_attr);
     /* USER CODE END RTOS_THREADS */
 

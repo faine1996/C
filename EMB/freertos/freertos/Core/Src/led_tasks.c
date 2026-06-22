@@ -3,28 +3,20 @@
 
 extern UART_HandleTypeDef huart2;
 
-volatile unsigned long led1_counter = 0;
-volatile unsigned long led2_counter = 0;
+LedTaskParams led1_params = {LED1_PORT, LED1_PIN, 300, 0};
+LedTaskParams led2_params = {LED2_PORT, LED2_PIN, 500, 0};
 
-void Task_LED1(void *argument)
+void Task_LED(void *argument)
 {
-    (void)argument;
+    LedTaskParams *params;
+
+    params = (LedTaskParams *)argument;
+
     for (;;)
     {
-        HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
-        led1_counter++;
-        osDelay(300);
-    }
-}
-
-void Task_LED2(void *argument)
-{
-    (void)argument;
-    for (;;)
-    {
-        HAL_GPIO_TogglePin(LED2_PORT, LED2_PIN);
-        led2_counter++;
-        osDelay(500);
+        HAL_GPIO_TogglePin(params->port, params->pin);
+        params->counter++;
+        osDelay(params->delay_ms);
     }
 }
 
@@ -36,8 +28,8 @@ void Task_Reporter(void *argument)
     (void)argument;
     for (;;)
     {
-        len = sprintf(buf, "LED1: %lu  LED2: %lu\r\n", led1_counter,
-                      led2_counter);
+        len = sprintf(buf, "LED1: %lu  LED2: %lu\r\n", led1_params.counter,
+                      led2_params.counter);
         HAL_UART_Transmit(&huart2, (uint8_t *)buf, (uint16_t)len,
                           HAL_MAX_DELAY);
         osDelay(3000);
