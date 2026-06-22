@@ -21,6 +21,19 @@ build/
 .DS_Store
 *~
 
+# --- STM32CubeIDE / Eclipse ---
+.cproject
+.project
+.settings/
+mx.scratch
+
+# --- CubeMX Internal Metadata ---
+.mxproject
+
+# --- Additional Build Artifacts ---
+*.map
+*.hex
+
 # --- Security Fail-Safes ---
 ReichmanEmbedded
 ReichmanEmbedded.pub
