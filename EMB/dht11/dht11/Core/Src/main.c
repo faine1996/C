@@ -106,29 +106,27 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+    DHT11_Data_t d;
+    DHT11_Status_t s;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    if (HAL_GPIO_ReadPin(GPIOC, GPIO_PIN_13) == GPIO_PIN_RESET) 
-    {
-      DHT11_Data_t d;
-      DHT11_Status_t s = DHT11_Read(&d);
+    s = DHT11_Read(&d);
 
-      if (s == DHT11_OK)
-      {
-        printf("Temp: %d.%d C  Hum: %d.%d%%\r\n",
-              d.temp_int, d.temp_dec, d.humidity_int, d.humidity_dec);
-      }
-      else if (s == DHT11_TIMEOUT)
-      {
-        printf("DHT11: timeout\r\n");
-      }
-      else
-      {
-        printf("DHT11: checksum error\r\n");
-      }
-      HAL_Delay(2000);
-}
+    if (DHT11_OK == s)
+    {
+      printf("Temp: %d.%d C  Hum: %d.%d%%\r\n",
+            d.temp_int, d.temp_dec, d.humidity_int, d.humidity_dec);
+    }
+    else if (DHT11_TIMEOUT == s)
+    {
+      printf("DHT11: timeout\r\n");
+    }
+    else
+    {
+      printf("DHT11: checksum error\r\n");
+    }
+    HAL_Delay(5000);
   }
   /* USER CODE END 3 */
 }
