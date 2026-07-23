@@ -37,3 +37,9 @@ mx.scratch
 # --- Security Fail-Safes ---
 ReichmanEmbedded
 ReichmanEmbedded.pub
+
+# --- Local tooling / personal files, not needed to build/run ---
+.claude/
+claude.md
+.clang-format
+*.vsix
