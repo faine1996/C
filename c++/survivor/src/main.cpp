@@ -11,15 +11,40 @@ int main()
     int tribeSize = getTribeSize();
     Tribe tribes[2];
 
-    tribes[0].init(tribeSize);
-    tribes[1].init(tribeSize);
+    tribes[0].init("Heroes", tribeSize);
+    tribes[1].init("Villains", tribeSize);
 
     handleMenu(tribes);
 
-    cout << "\n--- Tribe 1 ---" << endl;
+    cout << "\n--- Tribes Before Elimination ---" << endl;
     tribes[0].print();
+    tribes[1].print();
 
-    cout << "\n--- Tribe 2 ---" << endl;
+    cout << "\n--- Tribal Council (Eliminations) ---" << endl;
+    for (int i = 0; i < 2; ++i)
+    {
+        char elimName[20];
+        cout << "Enter the name of survivor " << (i + 1) << " to eliminate: ";
+        cin.getline(elimName, 20);
+
+        bool eliminated = tribes[0].eliminateSurvivor(elimName);
+        if (!eliminated)
+        {
+            eliminated = tribes[1].eliminateSurvivor(elimName);
+        }
+
+        if (eliminated) 
+        {
+            cout << ">> " << elimName << " was eliminated!" << endl;
+        } 
+        else 
+        {
+            cout << ">> " << elimName << " was not found." << endl;
+        }
+    }
+
+    cout << "\n--- Tribes After Elimination ---" << endl;
+    tribes[0].print();
     tribes[1].print();
     
     tribes[0].freeMemory();

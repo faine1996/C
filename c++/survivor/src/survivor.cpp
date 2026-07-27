@@ -16,3 +16,8 @@ void Survivor::print()
     cout << "Survivor Name: " << name << endl;
     cout << "Survivor Age: " << age << endl;
 }
+
+const char* Survivor::getName()
+{
+    return name;
+}

@@ -9,7 +9,8 @@ private:
 
 public:
     void init(const char* newName, int newAge);    
-    void print();  
+    void print();
+    const char* getName();
 };
 
 #endif
