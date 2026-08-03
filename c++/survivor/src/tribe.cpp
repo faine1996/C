@@ -4,11 +4,11 @@
 
 using namespace std;
 
-void Tribe::init(const char* tribeName,int capacity)
+Tribe::Tribe(const char* tribeName, int capacity)
 {
-    strncpy(name, tribeName, 19);
-    name[19] = '\0';
-    
+    name = new char[strlen(tribeName) + 1];
+    strcpy(name, tribeName);
+
     maxCapacity = capacity;
     currentCount = 0;
 
@@ -18,6 +18,37 @@ void Tribe::init(const char* tribeName,int capacity)
     {
         members[i] = nullptr;
     }
+}
+
+Tribe::Tribe(const Tribe& other)
+{
+    name = new char[strlen(other.name) + 1];
+    strcpy(name, other.name);
+
+    maxCapacity = other.maxCapacity;
+    currentCount = other.currentCount;
+
+    members = new Survivor*[maxCapacity];
+
+    for (int i = 0; i < currentCount; ++i)
+    {
+        members[i] = new Survivor(*other.members[i]);
+    }
+    for (int i = currentCount; i < maxCapacity; ++i)
+    {
+        members[i] = nullptr;
+    }
+}
+
+Tribe::~Tribe()
+{
+    delete[] name;
+
+    for (int i = 0; i < currentCount; ++i)
+    {
+        delete members[i];
+    }
+    delete[] members;
 }
 
 bool Tribe::addSurvivor(Survivor* s)
@@ -38,7 +69,7 @@ bool Tribe::eliminateSurvivor(const char* survivorName)
         if (0 == strcmp(members[i]->getName(),survivorName))
         {
             delete members[i];
-            
+
             for (int j = i; j < currentCount - 1; ++j)
             {
                 members[j] = members[j+1];
@@ -63,13 +94,4 @@ void Tribe::print() const
         members[i]->print();
         cout << "------------------" << endl;
     }
-}
-
-void Tribe::freeMemory()
-{
-    for (int i = 0; i < currentCount; ++i)
-    {
-        delete members[i];
-    }
-    delete[] members;
 }

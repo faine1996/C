@@ -6,19 +6,22 @@
 class Tribe
 {
     private:
-        char name[20];
+        char* name;
         int maxCapacity;
         int currentCount;
         Survivor** members;
 
     public:
-        void init(const char* tribeName,int capacity);
+        Tribe(const char* tribeName, int capacity);
+        Tribe(const Tribe& other);
+        ~Tribe();
+
         bool addSurvivor(Survivor*);
         bool eliminateSurvivor(const char* survivorName);
         void print() const;
-        void freeMemory();
         inline int getCurrentCount() const { return currentCount; };
         inline int getMaxCapacity() const { return maxCapacity; };
 };
 
 #endif //TRIBE_H
+

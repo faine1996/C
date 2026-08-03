@@ -3,12 +3,32 @@
 #include "../inc/survivor.h"
 using namespace std;
 
-void Survivor::init(const char* newName, int newAge, MaritalStatus newStatus)
+Survivor::Survivor(const char* newName, int newAge, MaritalStatus newStatus)
 {
-    strncpy(name,newName,19);
-    name[19] = '\0';
+    name = new char[strlen(newName) + 1];
+    strcpy(name, newName);
     age = newAge;
     status = newStatus;
+}
+
+Survivor::Survivor(const Survivor& other)
+{
+    name = new char[strlen(other.name) + 1];
+    strcpy(name, other.name);
+    age = other.age;
+    status = other.status;
+}
+
+Survivor::~Survivor()
+{
+    delete[] name;
+}
+
+void Survivor::setName(const char* newName)
+{
+    delete[] name;
+    name = new char[strlen(newName) + 1];
+    strcpy(name, newName);
 }
 
 void Survivor::print() const

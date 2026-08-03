@@ -11,16 +11,18 @@ enum class MaritalStatus
 class Survivor
 {
 private:
-    char name[20];
+    char* name;
     int age;
     MaritalStatus status;
 
 public:
-    void init(const char* newName, int newAge, MaritalStatus newStatus);    
+    Survivor(const char* newName, int newAge, MaritalStatus newStatus);
+    Survivor(const Survivor& other);
+    ~Survivor();
+
+    void setName(const char* newName);
     void print() const;
     inline const char* getName() const { return name; };
-
-    
 };
 
 #endif
