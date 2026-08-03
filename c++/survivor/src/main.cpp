@@ -95,15 +95,20 @@ void handleMenu(Tribe tribes[2])
             int tIndex = choice - 1;
             char tempName[20];
             int tempAge;
+            MaritalStatus tempStatus;
+            int statusInput;
 
             cout << "Enter Survivor Name: ";
             cin.getline(tempName,20);
             cout << "Enter Survivor Age: ";
             cin >> tempAge;
+            cout << "Enter Marital Status (0=Single, 1=Married, 2=Relationship): ";
+            cin >> statusInput;
+            tempStatus = static_cast<MaritalStatus>(statusInput);
             cin.ignore();
 
             Survivor* newSurvivor = new Survivor;
-            newSurvivor->init(tempName,tempAge);
+            newSurvivor->init(tempName,tempAge,tempStatus);
 
             if (!tribes[tIndex].addSurvivor(newSurvivor))
             {

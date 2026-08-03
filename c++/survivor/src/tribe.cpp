@@ -53,7 +53,7 @@ bool Tribe::eliminateSurvivor(const char* survivorName)
     return false;
 }
 
-void Tribe::print()
+void Tribe::print() const
 {
 
     cout << "--- Tribe: " << name << " ---" << endl;
@@ -73,14 +73,3 @@ void Tribe::freeMemory()
     }
     delete[] members;
 }
-
-int Tribe::getCurrentCount() 
-{
-    return currentCount;
-}
-
-int Tribe::getMaxCapacity() 
-{
-    return maxCapacity;
-}
-
