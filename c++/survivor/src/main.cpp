@@ -1,5 +1,6 @@
 #include <iostream>
 #include "../inc/tribe.h"
+#include "../inc/bandana.h"
 using namespace std;
 
 int getTribeSize();
@@ -71,6 +72,8 @@ void handleMenu(Tribe& tribe1, Tribe& tribe2)
             int tempAge;
             MaritalStatus tempStatus;
             int statusInput;
+            char tempColor[BANDANA_COLOR_MAX_LEN];
+            int tempBandanaLength;
 
             cout << "Enter Survivor Name: ";
             cin.getline(tempName,20);
@@ -80,8 +83,14 @@ void handleMenu(Tribe& tribe1, Tribe& tribe2)
             cin >> statusInput;
             tempStatus = static_cast<MaritalStatus>(statusInput);
             cin.ignore();
+            cout << "Enter Bandana Color: ";
+            cin.getline(tempColor, BANDANA_COLOR_MAX_LEN);
+            cout << "Enter Bandana Length (cm): ";
+            cin >> tempBandanaLength;
+            cin.ignore();
 
-            Survivor* newSurvivor = new Survivor(tempName, tempAge, tempStatus);
+            Bandana tempBandana(tempColor, tempBandanaLength);
+            Survivor* newSurvivor = new Survivor(tempName, tempAge, tempStatus, tempBandana);
             Tribe& targetTribe = (1 == choice) ? tribe1 : tribe2;
 
             if (!targetTribe.addSurvivor(newSurvivor))
@@ -89,8 +98,9 @@ void handleMenu(Tribe& tribe1, Tribe& tribe2)
                 cout << "Error: Tribe " << choice << " is full. " << endl;
                 delete newSurvivor;
             }
-        }
 
+
+        }
         else
         {
             cout << "Invalid choice try again." << endl;   

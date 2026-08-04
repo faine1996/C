@@ -33,6 +33,7 @@ Tribe::Tribe(const Tribe& other)
     for (int i = 0; i < currentCount; ++i)
     {
         members[i] = new Survivor(*other.members[i]);
+        members[i]->setTribe(this);
     }
     for (int i = currentCount; i < maxCapacity; ++i)
     {
@@ -57,10 +58,12 @@ bool Tribe::addSurvivor(Survivor* s)
     {
         members[currentCount] = s;
         currentCount++;
+        s->setTribe(this);
         return true;
     }
     return false;
 }
+
 
 bool Tribe::eliminateSurvivor(const char* survivorName)
 {

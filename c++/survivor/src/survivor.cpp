@@ -3,20 +3,26 @@
 #include "../inc/survivor.h"
 using namespace std;
 
-Survivor::Survivor(const char* newName, int newAge, MaritalStatus newStatus)
+int Survivor::nextSerialNumber = 1;
+
+Survivor::Survivor(const char* newName, int newAge, MaritalStatus newStatus, const Bandana& newBandana)
+    : bandana(newBandana), serialNumber(nextSerialNumber++)
 {
     name = new char[strlen(newName) + 1];
     strcpy(name, newName);
     age = newAge;
     status = newStatus;
+    tribe = nullptr;
 }
 
 Survivor::Survivor(const Survivor& other)
+    : bandana(other.bandana), serialNumber(other.serialNumber)
 {
     name = new char[strlen(other.name) + 1];
     strcpy(name, other.name);
     age = other.age;
     status = other.status;
+    tribe = other.tribe;
 }
 
 Survivor::~Survivor()
@@ -35,6 +41,8 @@ void Survivor::print() const
 {
     cout << "Survivor Name: " << name << endl;
     cout << "Survivor Age: " << age << endl;
+    cout << "Serial Number: " << serialNumber << endl;
+    cout << "Bandana Color: " << bandana.getColor() << " (" << bandana.getLength() << " cm)" << endl;
 
     cout << "Marital Status: ";
     switch (status)
