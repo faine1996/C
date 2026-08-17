@@ -1,8 +1,8 @@
 #include "Doctor.h"
 #include <cstring>
 
-Doctor::Doctor(const char* name, int employeeId, Department* department, const char* specialty)
-    : MedicalStaff(name, employeeId, department), specialty(new char[strlen(specialty) + 1])
+Doctor::Doctor(const char* name, int employeeId, const char* specialty)
+    : MedicalStaff(name, employeeId), specialty(new char[strlen(specialty) + 1])
 {
     strcpy(this->specialty, specialty);
 }
@@ -35,5 +35,7 @@ bool Doctor::setSpecialty(const char* specialty)
 
 void Doctor::toOs(std::ostream& os) const
 {
-    os << "Doctor - Name: " << getName() << ", Employee ID: " << getEmployeeId() << ", Specialty: " << specialty;
+    os << "Doctor - ";
+    MedicalStaff::toOs(os);
+    os << ", Specialty: " << specialty;
 }

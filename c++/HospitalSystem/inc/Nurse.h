@@ -9,7 +9,7 @@ private:
     int yearsOfExperience;
 
 public:
-    Nurse(const char* name, int employeeId, Department* department, int yearsOfExperience);
+    Nurse(const char* name, int employeeId, int yearsOfExperience);
 
     int getYearsOfExperience() const
     {

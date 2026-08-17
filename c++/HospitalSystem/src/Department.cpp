@@ -32,6 +32,7 @@ bool Department::addStaff(MedicalStaff* member)
         staff = newStaff;
     }
     staff[logicalSize] = member;
+    member->setDepartment(this);
     logicalSize++;
     return true;
 }

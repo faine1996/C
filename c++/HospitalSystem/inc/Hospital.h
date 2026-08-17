@@ -30,6 +30,10 @@ public:
     }
 
     bool addDepartment(Department* dept);
+
+    // Takes ownership of member unconditionally: on success it belongs to the matched department;
+    // on failure (no department named departmentName) it is deleted before returning false.
+    // The caller must never delete or reuse the pointer after this call, regardless of outcome.
     bool addStaff(const char* departmentName, MedicalStaff* member);
 
     friend std::ostream& operator<<(std::ostream& os, const Hospital& hospital);

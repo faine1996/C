@@ -1,7 +1,7 @@
 #include "Nurse.h"
 
-Nurse::Nurse(const char* name, int employeeId, Department* department, int yearsOfExperience)
-    : MedicalStaff(name, employeeId, department), yearsOfExperience(yearsOfExperience)
+Nurse::Nurse(const char* name, int employeeId, int yearsOfExperience)
+    : MedicalStaff(name, employeeId), yearsOfExperience(yearsOfExperience)
 {
 }
 
@@ -13,5 +13,7 @@ bool Nurse::setYearsOfExperience(int yearsOfExperience)
 
 void Nurse::toOs(std::ostream& os) const
 {
-    os << "Nurse - Name: " << getName() << ", Employee ID: " << getEmployeeId() << ", Years of Experience: " << yearsOfExperience;
+    os << "Nurse - ";
+    MedicalStaff::toOs(os);
+    os << ", Years of Experience: " << yearsOfExperience;
 }

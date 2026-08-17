@@ -1,5 +1,6 @@
 #include "Hospital.h"
 #include "Department.h"
+#include "MedicalStaff.h"
 #include <cstring>
 
 Hospital::Hospital()
@@ -43,6 +44,7 @@ bool Hospital::addStaff(const char* departmentName, MedicalStaff* member)
             return departments[i]->addStaff(member);
         }
     }
+    delete member;
     return false;
 }
 

@@ -9,9 +9,7 @@ private:
     char* specialty;
 
 public:
-    Doctor(const char* name, int employeeId, Department* department, const char* specialty);
-    Doctor(const Doctor& other);
-    Doctor& operator=(const Doctor& other);
+    Doctor(const char* name, int employeeId, const char* specialty);
     virtual ~Doctor()
     {
         delete[] specialty;
@@ -25,6 +23,9 @@ public:
     bool setSpecialty(const char* specialty);
 
 protected:
+    Doctor(const Doctor& other);              // protected: prevents object slicing through a base-class handle; derived classes still reach it, outside code cannot
+    Doctor& operator=(const Doctor& other);    // protected: same reasoning as the copy constructor
+
     virtual void toOs(std::ostream& os) const override;
 };
 
