@@ -2,28 +2,33 @@
 #define BUZZER_H
 
 /**
- * @brief   Initializes the buzzer output to the off state.
+ * @brief   Initialises the buzzer PWM channel to the off state.
+ *          TIM3 CH1 (PB4) is configured by CubeMX; this function
+ *          ensures the channel starts stopped.
  * @param   None.
  * @retval  None.
  */
 void Buzzer_Init(void);
 
 /**
- * @brief   Turns the buzzer on.
+ * @brief   Starts the buzzer tone by enabling PWM output on TIM3 CH1.
+ *          Returns immediately — the tone continues until Buzzer_Off()
+ *          is called.
  * @param   None.
  * @retval  None.
  */
 void Buzzer_On(void);
 
 /**
- * @brief   Turns the buzzer off.
+ * @brief   Stops the buzzer tone by disabling PWM output on TIM3 CH1.
  * @param   None.
  * @retval  None.
  */
 void Buzzer_Off(void);
 
 /**
- * @brief   Sounds the buzzer briefly for audible confirmation on the board.
+ * @brief   Sounds the buzzer briefly via PWM for audible confirmation,
+ *          then stops it. Blocks for the duration of the beep.
  * @param   None.
  * @retval  None.
  */

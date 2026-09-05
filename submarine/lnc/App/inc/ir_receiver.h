@@ -27,4 +27,13 @@ uint8_t Ir_IsObjectDetected(void);
  */
 void Ir_Test(void);
 
+/**
+ * @brief   Clears the object-detected latch, marking the object as no
+ *          longer detected. Call after the system has acted on a
+ *          detection event and is ready to detect again.
+ * @param   None.
+ * @retval  None.
+ */
+void Ir_Clear(void);
+
 #endif /* IR_RECEIVER_H */

@@ -49,3 +49,8 @@ void Ir_Test(void)
 
     TEST_CHECK(DetectionCount > 0U, "IR receiver detected at least one signal");
 }
+
+void Ir_Clear(void)
+{
+    ObjectDetected = 0U;
+}

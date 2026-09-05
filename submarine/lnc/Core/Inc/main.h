@@ -66,8 +66,6 @@ void Error_Handler(void);
 #define RGB_GREEN_GPIO_Port GPIOC
 #define BTN_ALARM_Pin GPIO_PIN_10
 #define BTN_ALARM_GPIO_Port GPIOA
-#define BUZZER_Pin GPIO_PIN_4
-#define BUZZER_GPIO_Port GPIOB
 #define DHT_DATA_Pin GPIO_PIN_5
 #define DHT_DATA_GPIO_Port GPIOB
 

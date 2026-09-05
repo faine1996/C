@@ -7,6 +7,7 @@
 #include "adc_sensors.h"
 #include "ir_receiver.h"
 #include "button.h"
+#include "monitor.h"
 #include <stdio.h>
 
 static void Menu_DrainRxBuffer(void)
@@ -30,6 +31,7 @@ static void Menu_PrintOptions(void)
     printf("4) ADC test\r\n");
     printf("5) IR receiver test\r\n");
     printf("6) Alarm-stop button test\r\n");
+    printf("7) Monitor test\r\n");
     printf("Select: ");
 }
 
@@ -84,6 +86,10 @@ void Menu_Run(void)
 
     case '6':
         Button_Test();
+    break;
+
+    case '7':
+        Monitor_Test();
     break;
 
     default:

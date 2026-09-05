@@ -22,11 +22,10 @@
 #include "task.h"
 #include "main.h"
 #include "cmsis_os.h"
-#include "menu.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "events.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,7 +51,7 @@
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .stack_size = 512 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 
@@ -114,13 +113,14 @@ void MX_FREERTOS_Init(void) {
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
-  /* USER CODE BEGIN StartDefaultTask */
+    /* USER CODE BEGIN StartDefaultTask */
+    Event_Init();
 
-  for (;;)
-  {
-    Menu_Run();
-  }
-  /* USER CODE END StartDefaultTask */
+    for (;;)
+    {
+        Event_Run();
+    }
+    /* USER CODE END StartDefaultTask */
 }
 
 /* Private application code --------------------------------------------------*/
