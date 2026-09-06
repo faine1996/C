@@ -20,22 +20,21 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "adc.h"
+#include "iwdg.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+
+/* Private includes ----------------------------------------------------------*/
+/* USER CODE BEGIN Includes */
 #include "test_bench.h"
-#include "menu.h"
 #include "rgb_led.h"
 #include "buzzer.h"
 #include "dht11.h"
 #include "adc_sensors.h"
 #include "ir_receiver.h"
 #include "button.h"
-#include "monitor.h"  
-
-/* Private includes ----------------------------------------------------------*/
-/* USER CODE BEGIN Includes */
-
+#include "monitor.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -102,7 +101,7 @@ int main(void)
   MX_GPIO_Init();
   MX_USART2_UART_Init();
   MX_ADC1_Init();
-  MX_TIM3_Init();    
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   TestBench_Init();
   RgbLed_Init();
@@ -111,7 +110,6 @@ int main(void)
   Adc_Init();
   Ir_Init();
   Button_Init();
-  Monitor_Init();   
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -153,7 +151,8 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
   RCC_OscInitStruct.MSIClockRange = RCC_MSIRANGE_6;

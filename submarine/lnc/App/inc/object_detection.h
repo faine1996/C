@@ -36,4 +36,14 @@ void ObjDet_Init(void);
  */
 void ObjDet_Poll(ObjDetEvent_t *event_out);
 
+/**
+ * @brief   Resets the object detection state to not-detected, matching
+ *          the IR latch after Ir_Clear() is called. Call whenever the
+ *          IR latch is cleared externally so ObjDet_Poll's internal
+ *          state stays in sync.
+ * @param   None.
+ * @retval  None.
+ */
+void ObjDet_Reset(void);
+
 #endif /* OBJECT_DETECTION_H */

@@ -120,11 +120,14 @@ debugging by swapping the task body in Core/Src/freertos.c.
   monitor mode transitions and IR object detection events: drives LED and
   buzzer, handles alarm-stop button, sets suppression flag, prints event
   and send-to-CC stubs. Buzzer rewritten from bit-bang to hardware PWM
-  (TIM3 CH1) to support non-blocking alarm-on/off. Button press restores
-  LED to the mode that was active before the alarm started; alarm
-  re-triggers on the next sample cycle if the underlying condition
-  persists.
-- **Stage 4 (FreeRTOS task integration) — next up.**
+  (TIM3 CH1) to support non-blocking alarm-on/off.
+- **Stage 4 (FreeRTOS task integration) — complete.** Monitor, Event,
+  Keep-Alive, and Watchdog running as separate FreeRTOS tasks. Monitor
+  posts sensor data to Event and Keep-Alive via queues. Keep-Alive prints
+  a heartbeat stub every 5 seconds. Watchdog refreshes the IWDG every
+  500ms. printf output from concurrent tasks interleaves on UART — will
+  be resolved in Stage 5 with a dedicated Comm task and queue.
+- **Stage 5 (Communication module + TLV framing) — next up.**
 - Central Computer and Ground Station (C++) — not yet started.
 
 ## Design decisions

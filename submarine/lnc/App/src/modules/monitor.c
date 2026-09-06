@@ -1,6 +1,9 @@
 #include "monitor.h"
 #include "dht11.h"
 #include "adc_sensors.h"
+#include "cmsis_os.h"
+#include "keep_alive.h"
+#include "events.h"
 
 /* -----------------------------------------------------------------------
  * Limit constants — all thresholds in one place.
@@ -28,6 +31,13 @@
 
 /* ADC sentinel value returned by the driver on conversion error */
 #define ADC_ERROR_SENTINEL 0xFFFFU
+
+/* -----------------------------------------------------------------------
+ * Static variables
+ * --------------------------------------------------------------------- */
+
+static osMessageQueueId_t s_event_queue;
+static osMessageQueueId_t s_keepalive_queue;
 
 /* -----------------------------------------------------------------------
  * Static helpers — classify one reading into its zone
@@ -127,8 +137,8 @@ static MonitorZone_t combine_zones(MonitorZone_t temp_z,
 
 void Monitor_Init(void)
 {
-    /* No hardware to configure — drivers handle their own init.
-     * Placeholder for any state initialisation needed in later stages. */
+    s_event_queue     = Event_GetQueueHandle();
+    s_keepalive_queue = KeepAlive_GetQueueHandle();
 }
 
 MonitorStatus_t Monitor_Sample(MonitorData_t *out)
@@ -198,4 +208,28 @@ MonitorStatus_t Monitor_Sample(MonitorData_t *out)
                                      out->light_zone);
 
     return result;
+}
+
+void Monitor_Task(void *argument)
+{
+    MonitorData_t data;
+
+    (void)argument;
+
+    for (;;)
+    {
+        Monitor_Sample(&data);
+
+        osMessageQueuePut(s_event_queue,
+                          &data,
+                          0U,
+                          0U);
+
+        osMessageQueuePut(s_keepalive_queue,
+                          &data,
+                          0U,
+                          0U);
+
+        osDelay(pdMS_TO_TICKS(5000U));
+    }
 }

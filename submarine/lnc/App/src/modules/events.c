@@ -6,6 +6,7 @@
 #include "monitor.h"
 #include "ir_receiver.h"
 #include "stm32l4xx_hal.h"
+#include "cmsis_os.h"
 #include <stdio.h>
 
 /* -----------------------------------------------------------------------
@@ -24,6 +25,12 @@ static uint8_t       s_suppressed;
 /* Number of 100 ms polls that make up one 5-second Monitor sample cycle */
 #define POLL_TICKS        50U
 #define POLL_INTERVAL_MS  100U
+
+/* -----------------------------------------------------------------------
+ * Static variables
+ * --------------------------------------------------------------------- */
+
+static osMessageQueueId_t s_queue;
 
 /* -----------------------------------------------------------------------
  * Static helpers
@@ -112,6 +119,7 @@ static void handle_object_event(ObjDetEvent_t ev)
 
         s_suppressed = 0U;
         Ir_Clear();
+        ObjDet_Reset();
 
         printf("[EVENT] Object CLEARED. Alarm off. System resumed.\r\n");
         printf("[TO-CC] TAG=0x11 EVENT_BLOCK: OBJECT_CLEARED\r\n");
@@ -131,6 +139,7 @@ static void poll_button_if_alarm(void)
         stop_alarm();
         RgbLed_SetMode((RgbLedMode_t)s_pre_alarm_mode);
         Ir_Clear();
+        ObjDet_Reset();
         s_suppressed = 0U;
 
         printf("[EVENT] Alarm stopped by button press.\r\n");
@@ -145,45 +154,59 @@ static void poll_button_if_alarm(void)
 
 void Event_Init(void)
 {
+    s_queue        = osMessageQueueNew(1U, sizeof(MonitorData_t), NULL);
     s_prev_mode    = ZONE_NORMAL;
+    s_pre_alarm_mode = ZONE_NORMAL;
     s_alarm_active = 0U;
     s_suppressed   = 0U;
 
     ObjDet_Init();
 }
 
-void Event_Run(void)
+void Event_Task(void *argument)
 {
-    MonitorData_t  data;
-    ObjDetEvent_t  obj_ev;
-    uint32_t       tick;
+    MonitorData_t data;
+    ObjDetEvent_t obj_ev;
+    osStatus_t    status;
+    uint32_t      tick;
 
-    Monitor_Sample(&data);
+    (void)argument;
 
-    if (data.system_mode != s_prev_mode)
+    for (;;)
     {
-        handle_mode_transition(s_prev_mode, data.system_mode, &data);
-    }
+        status = osMessageQueueGet(s_queue,
+                                   &data,
+                                   NULL,
+                                   pdMS_TO_TICKS(10000U));
 
-    s_prev_mode = data.system_mode;
-
-    ObjDet_Poll(&obj_ev);
-
-    if (OBJDET_NONE != obj_ev)
-    {
-        handle_object_event(obj_ev);
-    }
-
-    /* Inner poll loop — 50 x 100 ms = 5 seconds total.
-     * Checks button each tick if alarm is active.
-     * In Stage 4: HAL_Delay -> osDelay, this loop -> task body cadence. */
-    for (tick = 0U; tick < POLL_TICKS; ++tick)
-    {
-        HAL_Delay(POLL_INTERVAL_MS);
-
-        if (s_alarm_active)
+        if (osOK != status)
         {
-            poll_button_if_alarm();
+            printf("[EVENT] WARNING: queue timeout.\r\n");
+            continue;
+        }
+
+        if (data.system_mode != s_prev_mode)
+        {
+            handle_mode_transition(s_prev_mode, data.system_mode, &data);
+        }
+
+        s_prev_mode = data.system_mode;
+
+        ObjDet_Poll(&obj_ev);
+
+        if (OBJDET_NONE != obj_ev)
+        {
+            handle_object_event(obj_ev);
+        }
+
+        for (tick = 0U; tick < POLL_TICKS; ++tick)
+        {
+            osDelay(pdMS_TO_TICKS(POLL_INTERVAL_MS));
+
+            if (s_alarm_active)
+            {
+                poll_button_if_alarm();
+            }
         }
     }
 }
@@ -191,4 +214,9 @@ void Event_Run(void)
 uint8_t Event_IsSuppressed(void)
 {
     return s_suppressed;
+}
+
+osMessageQueueId_t Event_GetQueueHandle(void)
+{
+    return s_queue;
 }

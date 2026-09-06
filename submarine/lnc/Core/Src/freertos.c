@@ -25,7 +25,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "monitor.h"
 #include "events.h"
+#include "keep_alive.h"
+#include "watchdog.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,22 +48,41 @@
 
 /* Private variables ---------------------------------------------------------*/
 /* USER CODE BEGIN Variables */
+osThreadId_t monitorTaskHandle;
+osThreadId_t eventTaskHandle;
+osThreadId_t keepAliveTaskHandle;
+osThreadId_t watchdogTaskHandle;
 
+const osThreadAttr_t monitorTask_attributes = {
+    .name       = "monitorTask",
+    .stack_size = 1024 * 4,
+    .priority   = (osPriority_t)osPriorityNormal
+};
+
+const osThreadAttr_t eventTask_attributes = {
+    .name       = "eventTask",
+    .stack_size = 1024 * 4,
+    .priority   = (osPriority_t)osPriorityNormal
+};
+
+const osThreadAttr_t keepAliveTask_attributes = {
+    .name       = "keepAliveTask",
+    .stack_size = 256 * 4,
+    .priority   = (osPriority_t)osPriorityNormal
+};
+
+const osThreadAttr_t watchdogTask_attributes = {
+    .name       = "watchdogTask",
+    .stack_size = 256 * 4,
+    .priority   = (osPriority_t)osPriorityNormal
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
-osThreadId_t defaultTaskHandle;
-const osThreadAttr_t defaultTask_attributes = {
-  .name = "defaultTask",
-  .stack_size = 512 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
-};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
 
 /* USER CODE END FunctionPrototypes */
-
-void StartDefaultTask(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -70,9 +92,11 @@ void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
   * @retval None
   */
 void MX_FREERTOS_Init(void) {
-  /* USER CODE BEGIN Init */
-
-  /* USER CODE END Init */
+/* USER CODE BEGIN Init */
+Event_Init();
+KeepAlive_Init();
+Monitor_Init();
+/* USER CODE END Init */
 
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
@@ -92,11 +116,13 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* creation of defaultTask */
-  defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* USER CODE BEGIN RTOS_THREADS */
-  /* add threads, ... */
-  /* USER CODE END RTOS_THREADS */
+/* USER CODE BEGIN RTOS_THREADS */
+monitorTaskHandle = osThreadNew(Monitor_Task, NULL, &monitorTask_attributes);
+eventTaskHandle   = osThreadNew(Event_Task,   NULL, &eventTask_attributes);
+keepAliveTaskHandle = osThreadNew(KeepAlive_Task,  NULL, &keepAliveTask_attributes);
+watchdogTaskHandle  = osThreadNew(Watchdog_Task,   NULL, &watchdogTask_attributes);
+/* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */
   /* add events, ... */
@@ -105,23 +131,7 @@ void MX_FREERTOS_Init(void) {
 }
 
 /* USER CODE BEGIN Header_StartDefaultTask */
-/**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void *argument)
-{
-    /* USER CODE BEGIN StartDefaultTask */
-    Event_Init();
-
-    for (;;)
-    {
-        Event_Run();
-    }
-    /* USER CODE END StartDefaultTask */
-}
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */

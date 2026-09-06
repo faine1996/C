@@ -33,3 +33,8 @@ void ObjDet_Poll(ObjDetEvent_t *event_out)
 
     s_prev_detected = current_detected;
 }
+
+void ObjDet_Reset(void)
+{
+    s_prev_detected = 0U;
+}
