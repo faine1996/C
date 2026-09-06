@@ -1,5 +1,6 @@
 #include "keep_alive.h"
 #include "events.h"
+#include "comm.h"
 #include <stdio.h>
 
 /* Queue handle — created in KeepAlive_Init, read by Monitor to post */
@@ -39,20 +40,13 @@ void KeepAlive_Task(void *argument)
 
         if (osOK == status)
         {
-            /* Stub — replace with real TLV frame transmission in
-             * Stage 5 (Comm module). */
-            printf("[KEEPALIVE] TAG=0x10 ts=0 temp=%d hum=%u "
-                   "batt=%u light=%u mode=%d\r\n",
-                   (int)data.temperature,
-                   (unsigned)data.humidity,
-                   (unsigned)data.battery,
-                   (unsigned)data.light,
-                   (int)data.system_mode);
-        }
-        else
-        {
-            printf("[KEEPALIVE] WARNING: queue timeout — Monitor may "
-                   "have missed a cycle.\r\n");
+            CommMsg_t msg;
+            msg.type            = COMM_MSG_KEEPALIVE;
+            msg.payload.monitor = data;
+            osMessageQueuePut(Comm_GetTxQueueHandle(),
+                              &msg,
+                              0U,
+                              0U);
         }
     }
 }

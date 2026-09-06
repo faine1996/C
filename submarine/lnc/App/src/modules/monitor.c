@@ -4,6 +4,7 @@
 #include "cmsis_os.h"
 #include "keep_alive.h"
 #include "events.h"
+#include "task.h"
 
 /* -----------------------------------------------------------------------
  * Limit constants — all thresholds in one place.
@@ -43,7 +44,7 @@ static osMessageQueueId_t s_keepalive_queue;
  * Static helpers — classify one reading into its zone
  * --------------------------------------------------------------------- */
 
-static MonitorZone_t classify_temperature(int8_t t)
+static MonitorZone_t classify_temperature(int16_t t)
 {
     if (t >= TEMP_NORMAL_LOW && t <= TEMP_NORMAL_HIGH)
     {
@@ -143,13 +144,19 @@ void Monitor_Init(void)
 
 MonitorStatus_t Monitor_Sample(MonitorData_t *out)
 {
-    Dht11Status_t  dht_status;
+    Dht11Status_t   dht_status;
     MonitorStatus_t result;
+    int8_t          dht_temp;
 
     result = MONITOR_OK;
 
-    /* --- DHT11: temperature + humidity --- */
-    dht_status = Dht11_Read(&out->temperature, &out->humidity);
+    /* --- DHT11: temperature + humidity ---
+     * Suspend scheduler during the read to prevent task preemption
+     * from corrupting the bit-banged timing. The read takes ~20 ms;
+     * all other tasks are briefly paused for that window only. */
+    vTaskSuspendAll();
+    dht_status = Dht11_Read(&dht_temp, &out->humidity);
+    xTaskResumeAll();
 
     if (DHT11_OK != dht_status)
     {
@@ -163,8 +170,9 @@ MonitorStatus_t Monitor_Sample(MonitorData_t *out)
     }
     else
     {
-        out->temp_zone = classify_temperature(out->temperature);
-        out->hum_zone  = classify_humidity(out->humidity);
+        out->temperature = (int16_t)dht_temp;
+        out->temp_zone   = classify_temperature(out->temperature);
+        out->hum_zone    = classify_humidity(out->humidity);
     }
 
     /* --- ADC: battery --- */

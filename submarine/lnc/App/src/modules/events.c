@@ -7,6 +7,7 @@
 #include "ir_receiver.h"
 #include "stm32l4xx_hal.h"
 #include "cmsis_os.h"
+#include "comm.h"
 #include <stdio.h>
 
 /* -----------------------------------------------------------------------
@@ -60,7 +61,14 @@ static void handle_mode_transition(MonitorZone_t prev,
 
         printf("[EVENT] Mode -> ERROR (prev=%d). "
                "Alarm ON. System suppressed.\r\n", (int)prev);
-        printf("[TO-CC] TAG=0x11 EVENT_BLOCK: MODE_CHANGE -> ERROR\r\n");
+        {
+            CommMsg_t msg;
+            msg.type                  = COMM_MSG_EVENT;
+            msg.payload.event.event_type = COMM_EVENT_MODE_CHANGE;
+            msg.payload.event.detail     = (uint8_t)ZONE_ERROR;
+            msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
+            osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+        }
     }
     else if (next == ZONE_WARNING)
     {
@@ -75,7 +83,14 @@ static void handle_mode_transition(MonitorZone_t prev,
 
         printf("[EVENT] Mode -> WARNING (prev=%d). "
                "Alarm off. System resumed.\r\n", (int)prev);
-        printf("[TO-CC] TAG=0x11 EVENT_BLOCK: MODE_CHANGE -> WARNING\r\n");
+        {
+            CommMsg_t msg;
+            msg.type                     = COMM_MSG_EVENT;
+            msg.payload.event.event_type = COMM_EVENT_MODE_CHANGE;
+            msg.payload.event.detail     = (uint8_t)ZONE_WARNING;
+            msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
+            osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+        }
     }
     else
     {
@@ -91,7 +106,14 @@ static void handle_mode_transition(MonitorZone_t prev,
 
         printf("[EVENT] Mode -> NORMAL (prev=%d). "
                "Alarm off. System resumed.\r\n", (int)prev);
-        printf("[TO-CC] TAG=0x11 EVENT_BLOCK: MODE_CHANGE -> NORMAL\r\n");
+        {
+            CommMsg_t msg;
+            msg.type                     = COMM_MSG_EVENT;
+            msg.payload.event.event_type = COMM_EVENT_MODE_CHANGE;
+            msg.payload.event.detail     = (uint8_t)ZONE_NORMAL;
+            msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
+            osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+        }
     }
 }
 
@@ -106,7 +128,14 @@ static void handle_object_event(ObjDetEvent_t ev)
         s_suppressed   = 1U;
 
         printf("[EVENT] Object DETECTED. Alarm ON. System suppressed.\r\n");
-        printf("[TO-CC] TAG=0x11 EVENT_BLOCK: OBJECT_DETECTED\r\n");
+        {
+            CommMsg_t msg;
+            msg.type                     = COMM_MSG_EVENT;
+            msg.payload.event.event_type = COMM_EVENT_OBJECT_DETECTED;
+            msg.payload.event.detail     = 0U;
+            msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
+            osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+        }
     }
     else if (OBJDET_CLEARED == ev)
     {
@@ -122,7 +151,14 @@ static void handle_object_event(ObjDetEvent_t ev)
         ObjDet_Reset();
 
         printf("[EVENT] Object CLEARED. Alarm off. System resumed.\r\n");
-        printf("[TO-CC] TAG=0x11 EVENT_BLOCK: OBJECT_CLEARED\r\n");
+        {
+            CommMsg_t msg;
+            msg.type                     = COMM_MSG_EVENT;
+            msg.payload.event.event_type = COMM_EVENT_OBJECT_CLEARED;
+            msg.payload.event.detail     = 0U;
+            msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
+            osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+        }
     }
 }
 

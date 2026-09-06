@@ -1,6 +1,7 @@
 #ifndef MONITOR_H
 #define MONITOR_H
 
+#include "cmsis_os.h"
 #include <stdint.h>
 
 /* -----------------------------------------------------------------------
@@ -16,7 +17,7 @@ typedef enum
 
 typedef struct
 {
-    int8_t        temperature;
+    int16_t       temperature;
     uint8_t       humidity;
     uint16_t      battery;
     uint16_t      light;
@@ -61,6 +62,15 @@ void Monitor_Init(void);
  *          if a driver read failed.
  */
 MonitorStatus_t Monitor_Sample(MonitorData_t *out);
+
+/**
+ * @brief   FreeRTOS task function for the Monitor module. Samples all
+ *          four sensors every 5 seconds and posts MonitorData_t to the
+ *          Event and Keep-Alive queues.
+ * @param   argument  FreeRTOS task argument, unused.
+ * @retval  None.
+ */
+void Monitor_Task(void *argument);
 
 /**
  * @brief   Takes one sample, prints all raw values and zones over UART,
