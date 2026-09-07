@@ -11,6 +11,7 @@
 #define COMM_EVENT_MODE_CHANGE      0x01U
 #define COMM_EVENT_OBJECT_DETECTED  0x02U
 #define COMM_EVENT_OBJECT_CLEARED   0x03U
+#define COMM_EVENT_CONFIG_CHANGED   0x04U
 #define COMM_EVENT_STARTUP          0x05U
 
 /* -----------------------------------------------------------------------

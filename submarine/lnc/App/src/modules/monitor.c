@@ -5,40 +5,19 @@
 #include "keep_alive.h"
 #include "events.h"
 #include "task.h"
+#include "config.h"
+#include "log.h"
 
-/* -----------------------------------------------------------------------
- * Limit constants — all thresholds in one place.
- * Change a value or direction here; nothing else needs touching.
- * --------------------------------------------------------------------- */
-
-/* Temperature (degrees C) */
-#define TEMP_NORMAL_LOW    18
-#define TEMP_NORMAL_HIGH   28
-#define TEMP_WARNING_LOW   10
-#define TEMP_WARNING_HIGH  35
-
-/* Humidity (percent) */
-#define HUM_NORMAL_LOW     30
-#define HUM_NORMAL_HIGH    60
-#define HUM_WARNING_HIGH   75
-
-/* Battery (raw 12-bit ADC, HIGH = healthy) */
-#define BATT_NORMAL_MIN    3000
-#define BATT_WARNING_MIN   1500
-
-/* Light (raw 12-bit ADC, HIGH = bright = Normal) */
-#define LIGHT_NORMAL_MIN   700
-#define LIGHT_WARNING_MIN  300
 
 /* ADC sentinel value returned by the driver on conversion error */
 #define ADC_ERROR_SENTINEL 0xFFFFU
-
 /* -----------------------------------------------------------------------
  * Static variables
  * --------------------------------------------------------------------- */
 
 static osMessageQueueId_t s_event_queue;
 static osMessageQueueId_t s_keepalive_queue;
+static osMessageQueueId_t s_log_queue;
 
 /* -----------------------------------------------------------------------
  * Static helpers — classify one reading into its zone
@@ -46,12 +25,16 @@ static osMessageQueueId_t s_keepalive_queue;
 
 static MonitorZone_t classify_temperature(int16_t t)
 {
-    if (t >= TEMP_NORMAL_LOW && t <= TEMP_NORMAL_HIGH)
+    ConfigData_t cfg;
+
+    cfg = Config_Get();
+
+    if (t >= cfg.temp_normal_low && t <= cfg.temp_normal_high)
     {
         return ZONE_NORMAL;
     }
 
-    if (t >= TEMP_WARNING_LOW && t <= TEMP_WARNING_HIGH)
+    if (t >= cfg.temp_warning_low && t <= cfg.temp_warning_high)
     {
         return ZONE_WARNING;
     }
@@ -61,12 +44,16 @@ static MonitorZone_t classify_temperature(int16_t t)
 
 static MonitorZone_t classify_humidity(uint8_t h)
 {
-    if (h >= HUM_NORMAL_LOW && h <= HUM_NORMAL_HIGH)
+    ConfigData_t cfg;
+
+    cfg = Config_Get();
+
+    if (h >= cfg.hum_normal_min)
     {
         return ZONE_NORMAL;
     }
 
-    if (h <= HUM_WARNING_HIGH)
+    if (h >= cfg.hum_warning_min)
     {
         return ZONE_WARNING;
     }
@@ -76,13 +63,16 @@ static MonitorZone_t classify_humidity(uint8_t h)
 
 static MonitorZone_t classify_battery(uint16_t b)
 {
-    /* HIGH raw ADC = healthy battery (deliberate direction — see design log) */
-    if (b >= BATT_NORMAL_MIN)
+    ConfigData_t cfg;
+
+    cfg = Config_Get();
+
+    if (b >= cfg.batt_normal_min)
     {
         return ZONE_NORMAL;
     }
 
-    if (b >= BATT_WARNING_MIN)
+    if (b >= cfg.batt_warning_min)
     {
         return ZONE_WARNING;
     }
@@ -92,13 +82,16 @@ static MonitorZone_t classify_battery(uint16_t b)
 
 static MonitorZone_t classify_light(uint16_t l)
 {
-    /* HIGH raw ADC = bright = Normal (deliberate direction — see design log) */
-    if (l >= LIGHT_NORMAL_MIN)
+    ConfigData_t cfg;
+
+    cfg = Config_Get();
+
+    if (l >= cfg.light_normal_min)
     {
         return ZONE_NORMAL;
     }
 
-    if (l >= LIGHT_WARNING_MIN)
+    if (l >= cfg.light_warning_min)
     {
         return ZONE_WARNING;
     }
@@ -140,6 +133,7 @@ void Monitor_Init(void)
 {
     s_event_queue     = Event_GetQueueHandle();
     s_keepalive_queue = KeepAlive_GetQueueHandle();
+    s_log_queue = Log_GetDataQueueHandle();
 }
 
 MonitorStatus_t Monitor_Sample(MonitorData_t *out)
@@ -223,7 +217,7 @@ void Monitor_Task(void *argument)
     MonitorData_t data;
 
     (void)argument;
-
+    osDelay(pdMS_TO_TICKS(3000U));
     for (;;)
     {
         Monitor_Sample(&data);
@@ -234,6 +228,10 @@ void Monitor_Task(void *argument)
                           0U);
 
         osMessageQueuePut(s_keepalive_queue,
+                          &data,
+                          0U,
+                          0U);
+        osMessageQueuePut(s_log_queue,
                           &data,
                           0U,
                           0U);

@@ -8,6 +8,7 @@
 #include "stm32l4xx_hal.h"
 #include "cmsis_os.h"
 #include "comm.h"
+#include "log.h"
 #include <stdio.h>
 
 /* -----------------------------------------------------------------------
@@ -30,9 +31,8 @@ static uint8_t       s_suppressed;
 /* -----------------------------------------------------------------------
  * Static variables
  * --------------------------------------------------------------------- */
-
-static osMessageQueueId_t s_queue;
-
+    static osMessageQueueId_t s_queue;
+    static osMessageQueueId_t s_log_queue;
 /* -----------------------------------------------------------------------
  * Static helpers
  * --------------------------------------------------------------------- */
@@ -63,11 +63,12 @@ static void handle_mode_transition(MonitorZone_t prev,
                "Alarm ON. System suppressed.\r\n", (int)prev);
         {
             CommMsg_t msg;
-            msg.type                  = COMM_MSG_EVENT;
+            msg.type                     = COMM_MSG_EVENT;
             msg.payload.event.event_type = COMM_EVENT_MODE_CHANGE;
-            msg.payload.event.detail     = (uint8_t)ZONE_ERROR;
+            msg.payload.event.detail = (uint8_t)ZONE_ERROR;
             msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
             osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+            osMessageQueuePut(s_log_queue, &msg.payload.event, 0U, 0U);
         }
     }
     else if (next == ZONE_WARNING)
@@ -90,6 +91,7 @@ static void handle_mode_transition(MonitorZone_t prev,
             msg.payload.event.detail     = (uint8_t)ZONE_WARNING;
             msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
             osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+            osMessageQueuePut(s_log_queue, &msg.payload.event, 0U, 0U);
         }
     }
     else
@@ -113,6 +115,7 @@ static void handle_mode_transition(MonitorZone_t prev,
             msg.payload.event.detail     = (uint8_t)ZONE_NORMAL;
             msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
             osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+            osMessageQueuePut(s_log_queue, &msg.payload.event, 0U, 0U);
         }
     }
 }
@@ -135,6 +138,7 @@ static void handle_object_event(ObjDetEvent_t ev)
             msg.payload.event.detail     = 0U;
             msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
             osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+            osMessageQueuePut(s_log_queue, &msg.payload.event, 0U, 0U);
         }
     }
     else if (OBJDET_CLEARED == ev)
@@ -158,6 +162,7 @@ static void handle_object_event(ObjDetEvent_t ev)
             msg.payload.event.detail     = 0U;
             msg.payload.event.timestamp  = HAL_GetTick() / 1000U;
             osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
+            osMessageQueuePut(s_log_queue, &msg.payload.event, 0U, 0U);
         }
     }
 }
@@ -197,6 +202,7 @@ void Event_Init(void)
     s_suppressed   = 0U;
 
     ObjDet_Init();
+    s_log_queue = Log_GetEventQueueHandle();
 }
 
 void Event_Task(void *argument)

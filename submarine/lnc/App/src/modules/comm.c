@@ -3,6 +3,7 @@
 #include "stm32l4xx_hal.h"
 #include "cmsis_os.h"
 #include "usart.h"
+#include "config.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -243,15 +244,19 @@ static void dispatch_command(uint8_t tag, const uint8_t *value, uint8_t len)
     uint32_t ts;
     uint8_t  i;
 
-    (void)value;
-    (void)len;
-
     switch (tag)
     {
-        case TAG_SET_CONFIG:
-            /* Stage 6: pass to Config module. Stub for now. */
-            printf("[COMM-RX] SET_CONFIG received (param_id=0x%02X)\r\n",
-                   (unsigned)value[0]);
+            case TAG_SET_CONFIG:
+                /* Need at least 1 byte for param_id plus any payload */
+                if (len < 1U)
+                {
+                    printf("[COMM-RX] SET_CONFIG: empty frame — ignored\r\n");
+                    break;
+                }
+                /* value[0] is param_id; value+1 is the payload; len-1 is
+                * the payload length. Config_ApplyParam handles all parsing,
+                * Flash write, and CONFIG_CHANGED event notification. */
+                Config_ApplyParam(value[0], value + 1U, (uint8_t)(len - 1U));
             break;
 
         case TAG_SET_TIME:

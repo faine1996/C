@@ -1,0 +1,117 @@
+﻿================================================================
+ LEGEND — abbreviations used in the tables below
+================================================================
+  LNC    Local Node Controller (the embedded end unit, in C)
+  CC     Central Computer (manages the LNC; a C++ program)
+  GS     Ground Station (requests stored data; a C++ program)
+  TLV    Tag-Length-Value message format
+  EXTI   External Interrupt line (STM32 pin interrupt)
+  ADC    Analog-to-Digital Converter
+  LDR    Light-Dependent Resistor (the light sensor)
+  IR     Infrared receiver (used as the object-detection "sonar")
+  RTC    Real-Time Clock
+  WD     Watchdog
+================================================================
+
+
+
+
+Table 1 — System architecture: the three programs and two links
+Component
+	Language
+	Runs on
+	Talks to
+	Over
+	Framing
+	Local Node Controller (LNC)
+	C (C89)
+	STM32 L476RG
+	Central Computer
+	UART
+	Full framed TLV (SOF + Length + Checksum)
+	Central Computer (CC)
+	C++ (C++17)
+	PC
+	LNC, and Ground Station
+	UART (to LNC), TCP (to GS)
+	Framed TLV on UART; length-prefixed TLV on TCP
+	Ground Station (GS)
+	C++ (C++17)
+	PC
+	Central Computer
+	TCP
+	Length-prefixed TLV (no SOF/checksum)
+	Reasoning: the LNC is on a microcontroller doing hardware timing, so it must be C (your lecturer's rule, and the environment's). The CC and GS are PC-side management software with objects, hierarchies, and containers — a natural fit for C++ and your OOP deliverable. The two links use different transports because they solve different problems: UART is a raw wire needing a protective envelope; TCP is a reliable stream that supplies that protection itself, so its framing is lighter.
+
+
+
+
+
+
+Table 2 — Frozen pin map (LNC on the STM32 L476RG)
+Signal (full name)
+	Nucleo pin
+	STM32 pin
+	CubeMX peripheral / channel
+	Direction
+	UART transmit → Central Computer
+	D1
+	PA2
+	USART2_TX
+	out
+	UART receive ← Central Computer
+	D0
+	PA3
+	USART2_RX
+	in
+	Temperature + Humidity (DHT11 data)
+	—
+	PB5
+	GPIO output (driver toggles direction)
+	bidirectional
+	Battery voltage (potentiometer wiper)
+	A0
+	PA0
+	ADC1 channel IN5
+	in (analog)
+	Light level (LDR)
+	A1
+	PA1
+	ADC1 channel IN6
+	in (analog)
+	Object detection (IR receiver)
+	D6
+	PB10
+	GPIO EXTI line 10, pull-up, falling edge
+	in (interrupt)
+	Alarm-stop button
+	D2
+	PA10
+	GPIO input, pull-up (polled)
+	in
+	RGB LED — red channel
+	—
+	PC6
+	GPIO output
+	out
+	RGB LED — green channel
+	—
+	PC8
+	GPIO output
+	out
+	Buzzer (alarm)
+	D5
+	PB4
+	GPIO output
+	out
+	SD chip-select (deferred)
+	D10
+	PB6
+	SPI1 NSS (software)
+	out
+	SD clock / MISO / MOSI (deferred)
+	D13/D12/D11
+	PA5/PA6/PA7
+	SPI1
+	—
+	Reasoning per decision, briefly: DHT11 covers two of the four Monitor readings from one pin, so temp and humidity share PB5. Battery and light are the two analog inputs, on the L476's actual channels IN5/IN6 (the board manual's mapping, not the "obvious" IN0/IN1). The IR receiver is the object-detection sensor and is interrupt-driven so detection is instant. The button is polled, not interrupt — because PA10 and the IR's PB10 both sit on EXTI line 10 and STM32 allows only one pin per line; polling the button sidesteps that collision and switch-bounce at once. The RGB LED reuses PC6/PC8 (freed from the two discrete LEDs the spec doesn't need), keeping it off the SD card's PA5-7/PB6 so files re-add later with zero rewiring. Only red+green are wired because three colours (green/yellow/red) need just two channels — no PWM, no timers.

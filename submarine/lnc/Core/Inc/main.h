@@ -68,9 +68,13 @@ void Error_Handler(void);
 #define BTN_ALARM_GPIO_Port GPIOA
 #define DHT_DATA_Pin GPIO_PIN_5
 #define DHT_DATA_GPIO_Port GPIOB
+#define SD_CS_Pin GPIO_PIN_6
+#define SD_CS_GPIO_Port GPIOB
+#define BUZZER_Pin GPIO_PIN_4
+#define BUZZER_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
-
+#define SD_SPI_HANDLE hspi1
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

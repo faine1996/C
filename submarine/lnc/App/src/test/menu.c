@@ -9,6 +9,7 @@
 #include "button.h"
 #include "monitor.h"
 #include "comm.h"
+#include "config.h"
 #include <stdio.h>
 
 static void Menu_DrainRxBuffer(void)
@@ -34,6 +35,7 @@ static void Menu_PrintOptions(void)
     printf("6) Alarm-stop button test\r\n");
     printf("7) Monitor test\r\n");
     printf("8) Comm test\r\n");
+    printf("9) Config test\r\n");
     printf("Select: ");
 }
 
@@ -96,6 +98,9 @@ void Menu_Run(void)
 
     case '8':
         Comm_Test();
+    break;
+    case '9':
+        Config_Test();
     break;
 
     default:

@@ -18,7 +18,7 @@ void Watchdog_Init(void)
      * Any task stall longer than 2 seconds triggers a reset. */
     s_hiwdg.Instance       = IWDG;
     s_hiwdg.Init.Prescaler = IWDG_PRESCALER_32;
-    s_hiwdg.Init.Reload    = 1999U;
+    s_hiwdg.Init.Reload    = 9999U;
     s_hiwdg.Init.Window    = IWDG_WINDOW_DISABLE;
 
     if (HAL_IWDG_Init(&s_hiwdg) != HAL_OK)

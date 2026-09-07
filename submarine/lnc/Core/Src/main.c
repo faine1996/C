@@ -20,10 +20,15 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "adc.h"
+#include "fatfs.h"
+#include "i2c.h"
 #include "iwdg.h"
+#include "rtc.h"
+#include "spi.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
+
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -35,6 +40,9 @@
 #include "ir_receiver.h"
 #include "button.h"
 #include "monitor.h"
+#include "config.h"
+#include "log.h"
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -102,6 +110,10 @@ int main(void)
   MX_USART2_UART_Init();
   MX_ADC1_Init();
   MX_TIM3_Init();
+  MX_I2C3_Init();
+  MX_RTC_Init();
+  MX_SPI1_Init();
+  MX_FATFS_Init();
   /* USER CODE BEGIN 2 */
   TestBench_Init();
   RgbLed_Init();
@@ -110,12 +122,21 @@ int main(void)
   Adc_Init();
   Ir_Init();
   Button_Init();
-  /* USER CODE END 2 */
+  Config_Init();
+/* USER CODE END 2 */
+Config_Init();
 
+/* Mount SD card */
+{
+    FRESULT fr;
+    HAL_Delay(500U);
+    fr = f_mount(&USERFatFS, USERPath, 1U);
+    printf("[LOG] SD mount: fr=%d\r\n", (int)fr);
+}
+/* USER CODE END 2 */
   /* Init scheduler */
   osKernelInitialize();  /* Call init function for freertos objects (in cmsis_os2.c) */
   MX_FREERTOS_Init();
-
   /* Start scheduler */
   osKernelStart();
 
@@ -148,10 +169,17 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  /** Configure LSE Drive Capability
+  */
+  HAL_PWR_EnableBkUpAccess();
+  __HAL_RCC_LSEDRIVE_CONFIG(RCC_LSEDRIVE_LOW);
+
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_LSI|RCC_OSCILLATORTYPE_LSE
+                              |RCC_OSCILLATORTYPE_MSI;
+  RCC_OscInitStruct.LSEState = RCC_LSE_ON;
   RCC_OscInitStruct.LSIState = RCC_LSI_ON;
   RCC_OscInitStruct.MSIState = RCC_MSI_ON;
   RCC_OscInitStruct.MSICalibrationValue = 0;
@@ -181,10 +209,13 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
+  /** Enable MSI Auto calibration
+  */
+  HAL_RCCEx_EnableMSIPLLMode();
 }
 
 /* USER CODE BEGIN 4 */
-
 /* USER CODE END 4 */
 
 /**

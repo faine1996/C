@@ -1,0 +1,103 @@
+================================================================
+ SUBMARINE MONITORING SYSTEM — LNC <-> CENTRAL COMPUTER
+ WIRE PROTOCOL v1.0  (FROZEN)
+================================================================
+
+FRAME FORMAT (the envelope around every message)
+----------------------------------------------------------------
+  +------+------+------+---------------+----------+
+  | SOF  | TAG  | LEN  | VALUE         | CHECKSUM |
+  | 0xAA | 1 B  | 1 B  | LEN bytes     | 1 B      |
+  +------+------+------+---------------+----------+
+  Total frame size = LEN + 4 bytes   (LEN range 0..255)
+
+GLOBAL RULES
+----------------------------------------------------------------
+  - Byte order: ALL multi-byte fields are LITTLE-ENDIAN.
+  - SOF is always 0xAA. It marks the start of a frame and is the
+    resync point (see RECEIVER below).
+  - CHECKSUM = (TAG + LEN + every VALUE byte) & 0xFF.
+    SOF is NOT included in the checksum.
+  - A frame with a bad checksum is discarded silently; the
+    receiver returns to hunting for the next SOF.
+
+ENUMERATIONS
+----------------------------------------------------------------
+  mode        : 0 = Normal, 1 = Warning, 2 = Error
+  event_type  : 0x01 = MODE_CHANGE      (detail = new mode 0/1/2)
+                0x02 = OBJECT_DETECTED   (detail = 0)
+                0x03 = OBJECT_CLEARED    (detail = 0)
+                0x04 = CONFIG_CHANGED    (detail = param_id changed)
+                0x05 = STARTUP           (detail = 1 if WD reset else 0)
+
+REUSABLE VALUE BLOCKS
+----------------------------------------------------------------
+  MEASUREMENT BLOCK (12 bytes):
+    offset 0  : timestamp   uint32   (epoch seconds)
+    offset 4  : temp        int16    (whole degrees C)
+    offset 6  : humidity    uint8    (percent)
+    offset 7  : battery      uint16   (raw 12-bit ADC)
+    offset 9  : light       uint16   (raw 12-bit ADC)
+    offset 11 : mode        uint8
+
+  EVENT BLOCK (6 bytes):
+    offset 0  : event_type  uint8
+    offset 1  : detail      uint8
+    offset 2  : timestamp   uint32   (epoch seconds)
+
+TAGS
+----------------------------------------------------------------
+  LNC -> CENTRAL COMPUTER  (telemetry & events)
+    0x10  KEEPALIVE          VALUE = MEASUREMENT BLOCK (12 B)
+    0x11  EVENT              VALUE = EVENT BLOCK (6 B)
+    0x12  DATA_REPORT        VALUE = MEASUREMENT BLOCK (12 B)
+    0x13  TIME_SYNC_REQUEST  VALUE = empty (LEN 0)
+
+  CENTRAL COMPUTER -> LNC  (commands)
+    0x20  SET_CONFIG         VALUE = param_id(1) + payload (see below)
+    0x21  SET_TIME           VALUE = yy mm dd hh mm ss  (6 x uint8,
+                                     yy = year - 2000)
+    0x22  GET_TIME           VALUE = empty (LEN 0)
+    0x23  GET_DATA_RANGE     VALUE = start_ts uint32 + end_ts uint32
+    0x24  GET_EVENTS_RANGE   VALUE = start_ts uint32 + end_ts uint32
+
+  LNC -> CENTRAL COMPUTER  (responses)
+    0x80  TIME_REPORT        VALUE = timestamp uint32 (epoch seconds)
+    0x81  DATA_ITEM          VALUE = MEASUREMENT BLOCK, one per record.
+                             A DATA_ITEM with LEN 0 = end of stream.
+    0x82  EVENT_ITEM         VALUE = EVENT BLOCK, one per record.
+                             An EVENT_ITEM with LEN 0 = end of stream.
+
+SET_CONFIG PARAM IDs (payload that follows param_id)
+----------------------------------------------------------------
+    0x01  TEMP_NORMAL      low int16 + high int16   (4 B payload)
+    0x02  TEMP_WARNING     low int16 + high int16   (4 B payload)
+    0x03  HUM_NORMAL_MIN   uint8                     (1 B)
+    0x04  HUM_WARNING_MIN  uint8                     (1 B)
+    0x05  LIGHT_NORMAL_MIN uint16                    (2 B)
+    0x06  LIGHT_WARNING_MIN uint16                   (2 B)
+    0x07  BATT_NORMAL_MIN  uint16                    (2 B)
+    0x08  BATT_WARNING_MIN uint16                    (2 B)
+  (LEN for a SET_CONFIG frame = 1 + payload size. The parser reads
+   param_id first, which tells it how many payload bytes follow.)
+
+RECEIVER (how each side reads the byte ribbon)
+----------------------------------------------------------------
+  A 5-state machine, resettable to WAIT_SOF at any error:
+    WAIT_SOF  -> byte == 0xAA ? go to READ_TAG
+    READ_TAG  -> store TAG,  go to READ_LEN
+    READ_LEN  -> store LEN,  go to READ_VALUE (or READ_CHK if LEN==0)
+    READ_VALUE-> collect LEN bytes, then go to READ_CHK
+    READ_CHK  -> verify checksum. OK: deliver frame. Bad: drop it.
+                 Either way, go back to WAIT_SOF.
+
+WORKED EXAMPLE — a KEEPALIVE frame
+----------------------------------------------------------------
+  Fields: ts=1000, temp=25, hum=60, batt=2048, light=1500, mode=0
+  VALUE (12 B, little-endian):
+    E8 03 00 00  19 00  3C  00 08  DC 05  00
+  TAG=0x10  LEN=0x0C
+  CHECKSUM = (0x10 + 0x0C + sum(value)) & 0xFF = 0x45
+  FULL FRAME ON THE WIRE (16 bytes):
+    AA 10 0C E8 03 00 00 19 00 3C 00 08 DC 05 00 45
+================================================================
