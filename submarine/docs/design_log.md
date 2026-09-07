@@ -828,3 +828,19 @@ Log module — RTC decision:
   - Log filenames are hardcoded to current date at write time via DS1307.
     If DS1307 loses power and is not re-synced via SET_TIME, filenames
     fall back to "700101" (epoch default).
+
+    ## [Log Module] CSV column value meanings
+
+Data file (D{YYMMDD}.csv):
+- timestamp_s: seconds since board boot (HAL_GetTick() / 1000)
+- temp_c: temperature in degrees Celsius (integer, from DHT11)
+- humidity_pct: relative humidity percentage (integer, from DHT11)
+- battery_raw: ADC raw value 0-4095 (potentiometer on PA0, 4095 = max voltage)
+- light_raw: ADC raw value 0-4095 (LDR on PA1, 4095 = maximum light)
+- mode: system mode — 0=Normal, 1=Warning, 2=Error
+
+Event file (E{YYMMDD}.csv):
+- timestamp_s: seconds since board boot when event occurred
+- event_type: 1=mode change (from Monitor), 2=object detection (from IR/sonar)
+- detail for event_type 1: new mode after transition — 0=Normal, 1=Warning, 2=Error
+- detail for event_type 2: 0=object detected, 1=object cleared
