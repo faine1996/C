@@ -8,6 +8,7 @@
 #include "ir_receiver.h"
 #include "button.h"
 #include "monitor.h"
+#include "comm.h"
 #include <stdio.h>
 
 static void Menu_DrainRxBuffer(void)
@@ -32,6 +33,7 @@ static void Menu_PrintOptions(void)
     printf("5) IR receiver test\r\n");
     printf("6) Alarm-stop button test\r\n");
     printf("7) Monitor test\r\n");
+    printf("8) Comm test\r\n");
     printf("Select: ");
 }
 
@@ -90,6 +92,10 @@ void Menu_Run(void)
 
     case '7':
         Monitor_Test();
+    break;
+
+    case '8':
+        Comm_Test();
     break;
 
     default:
