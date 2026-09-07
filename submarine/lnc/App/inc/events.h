@@ -37,4 +37,20 @@ void Event_Run(void);
  */
 uint8_t Event_IsSuppressed(void);
 
+/**
+ * @brief   Returns the Event module queue handle for Monitor to post to.
+ * @param   None.
+ * @retval  osMessageQueueId_t handle.
+ */
+osMessageQueueId_t Event_GetQueueHandle(void);
+
+/**
+ * @brief   FreeRTOS task function for the Event module. Blocks on the
+ *          Monitor queue, processes mode transitions and object detection
+ *          events, drives LED and buzzer, polls alarm-stop button.
+ * @param   argument  FreeRTOS task argument, unused.
+ * @retval  None.
+ */
+void Event_Task(void *argument);
+
 #endif /* EVENT_H */
