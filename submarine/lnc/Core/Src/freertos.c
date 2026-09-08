@@ -32,6 +32,7 @@
 #include "comm.h"
 #include "log.h"
 #include "fatfs.h"
+#include "init.h"
 #include <stdio.h>
 /* USER CODE END Includes */
 
@@ -58,6 +59,7 @@ osThreadId_t keepAliveTaskHandle;
 osThreadId_t watchdogTaskHandle;
 osThreadId_t commTaskHandle;
 osThreadId_t logTaskHandle;
+osThreadId_t initTaskHandle;
 
 const osThreadAttr_t monitorTask_attributes = {
     .name       = "monitorTask",
@@ -92,6 +94,11 @@ const osThreadAttr_t logTask_attributes = {
     .stack_size = 1024 * 4,
     .priority   = (osPriority_t)osPriorityNormal
 };
+const osThreadAttr_t initTask_attributes = {
+    .name       = "initTask",
+    .stack_size = 256 * 4,
+    .priority   = (osPriority_t)osPriorityAboveNormal
+};
 /* USER CODE END Variables */
 /* Definitions for defaultTask */
 osThreadId_t defaultTaskHandle;
@@ -119,6 +126,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN Init */
     Log_Init();
     Event_Init();
+    Init_Init();
     KeepAlive_Init();
     Monitor_Init();
     Comm_Init();
@@ -147,6 +155,7 @@ void MX_FREERTOS_Init(void) {
     watchdogTaskHandle  = osThreadNew(Watchdog_Task,  NULL, &watchdogTask_attributes);
     commTaskHandle      = osThreadNew(Comm_Task,      NULL, &commTask_attributes);
     logTaskHandle       = osThreadNew(Log_Task,       NULL, &logTask_attributes);
+    initTaskHandle      = osThreadNew(Init_Task,      NULL, &initTask_attributes);
   /* USER CODE END RTOS_THREADS */
 
   /* USER CODE BEGIN RTOS_EVENTS */

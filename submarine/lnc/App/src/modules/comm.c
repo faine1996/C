@@ -4,6 +4,7 @@
 #include "cmsis_os.h"
 #include "usart.h"
 #include "config.h"
+#include "init.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -260,9 +261,36 @@ static void dispatch_command(uint8_t tag, const uint8_t *value, uint8_t len)
             break;
 
         case TAG_SET_TIME:
-            /* Stage 6: set RTC. Stub for now. */
-            printf("[COMM-RX] SET_TIME received\r\n");
+    /* Expect exactly 7 bytes: year, month, date, day_of_week,
+     * hours, minutes, seconds — matching Ds1307_Time_t field order */
+        if (7U != len)
+        {
+            printf("[COMM-RX] SET_TIME: bad length %u — ignored\r\n",
+                (unsigned)len);
             break;
+        }
+        {
+            Ds1307_Time_t t;
+
+            t.year        = value[0];
+            t.month       = value[1];
+            t.date        = value[2];
+            t.day_of_week = value[3];
+            t.hours       = value[4];
+            t.minutes     = value[5];
+            t.seconds     = value[6];
+
+            printf("[COMM-RX] SET_TIME received: 20%02u/%02u/%02u %02u:%02u:%02u\r\n",
+                (unsigned)t.year,
+                (unsigned)t.month,
+                (unsigned)t.date,
+                (unsigned)t.hours,
+                (unsigned)t.minutes,
+                (unsigned)t.seconds);
+
+            Init_NotifyTimeReceived(&t);
+        }
+        break;
 
         case TAG_GET_TIME:
             /* Respond immediately with current tick-based timestamp */

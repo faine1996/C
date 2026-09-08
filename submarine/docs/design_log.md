@@ -844,3 +844,81 @@ Event file (E{YYMMDD}.csv):
 - event_type: 1=mode change (from Monitor), 2=object detection (from IR/sonar)
 - detail for event_type 1: new mode after transition — 0=Normal, 1=Warning, 2=Error
 - detail for event_type 2: 0=object detected, 1=object cleared
+
+## [Protocol] TAG_SET_TIME value field — 7 broken-down bytes, not a Unix timestamp
+
+- Decision: the value field of TAG_SET_TIME (0x21) carries 7 raw bytes in
+  this order: year (0-99), month (1-12), date (1-31), day_of_week (1-7),
+  hours (0-23), minutes (0-59), seconds (0-59). These map directly onto
+  the Ds1307_Time_t struct fields with no conversion.
+- Reasoning: the alternative (4-byte Unix epoch uint32) would require
+  epoch-to-broken-down-time conversion on the LNC side — ~30 lines of
+  C89 arithmetic covering leap years and month lengths. Since we control
+  both sides of the wire (LNC and Central Computer), choosing the format
+  that costs zero conversion on the receiver is strictly simpler. The 3
+  extra bytes over a Unix timestamp are negligible on UART.
+- Alternatives considered: Unix timestamp (uint32 LE) — rejected because
+  it pushes non-trivial calendar arithmetic into the embedded side for no
+  gain when both sides are being written by us.
+
+## [Init Module] Init task design — one-shot task, exits via osThreadExit()
+
+- Decision: Init_Task runs once (time sync sequence + startup event log),
+  then calls osThreadExit(). It does not loop idle.
+- Reasoning: Init is a one-shot startup job. A task that sits in
+  osDelay(osWaitForever) forever wastes its stack allocation permanently.
+  After a WD reset, MX_FREERTOS_Init() recreates all tasks from scratch,
+  so Init_Task is always created fresh — there is no "resume" case that
+  requires the task to persist.
+- Alternatives considered: infinite osDelay loop — rejected as wasteful
+  and potentially misleading when reading the code.
+
+## [Init Module] Time sync priority order at startup
+
+- Decision: Init_Task uses this priority order for setting the RTC:
+  1. Request SET_TIME from Central Computer via TIME_SYNC_REQ; wait up
+     to 5 seconds for the response.
+  2. If no CC response: check Ds1307_IsTimeSet(). If the DS1307 has a
+     valid battery-backed time from a prior sync, use it and continue.
+  3. If DS1307 has never been set: Log_Init() will have already written
+     a hardcoded default (26/01/01 00:00:00). No further action needed.
+- Reasoning: the DS1307 has a coin-cell backup and retains time across
+  power cycles. After the first successful CC sync, subsequent boots
+  where the CC is unavailable are not failures — the RTC already has
+  valid time. Only a truly fresh board with no CC available falls through
+  to the Log_Init default.
+
+## [Init Module] Comm -> Init dependency for SET_TIME handling
+
+- Decision: when Comm receives TAG_SET_TIME (0x21), dispatch_command()
+  calls Init_NotifyTimeReceived(timestamp), which posts the parsed
+  Ds1307_Time_t fields into Init's internal queue. Init_Task then calls
+  Ds1307_SetTime(). Comm does not touch the DS1307 directly.
+- Reasoning: keeping DS1307 writes inside the Init module preserves
+  clean separation — Comm owns the wire protocol, Init owns RTC
+  management. The dependency is one-way (comm.c includes init.h).
+- Alternatives considered: Comm calls Ds1307_SetTime directly inside
+  dispatch_command — rejected because it puts hardware management code
+  inside a protocol handler, which surprises the reader.
+
+## [Init Module] Startup event written directly to Log event queue
+
+- Decision: Init_Task posts the startup CommEventPayload_t directly to
+  Log_GetEventQueueHandle(), bypassing the Event task entirely.
+- Reasoning: the spec (section 2.3.3) says the startup event is written
+  to the events file. It does not require any LED, buzzer, or CC message
+  action — so routing through Event_Task would add a queue hop with no
+  benefit. Direct-to-Log is simpler and avoids adding a new event source
+  to Event_Task's dispatch logic.
+
+## [Init Module] WD reset detection via RCC_FLAG_IWDGRST
+
+- Decision: Init_Init() reads and clears RCC_FLAG_IWDGRST using
+  __HAL_RCC_GET_FLAG() before the scheduler starts. The result is stored
+  in a static bool that Init_Task reads when building the startup event
+  detail byte (1 = WD reset, 0 = normal boot).
+- Reasoning: RCC reset-source flags are cleared by writing to RCC_CSR.
+  They must be read before any code clears them. Placing the read in
+  Init_Init() (called in MX_FREERTOS_Init before osKernelStart) ensures
+  the flag is captured before any other module could inadvertently clear
+  it. __HAL_RCC_CLEAR_RESET_FLAGS() is called immediately after reading.

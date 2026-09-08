@@ -34,27 +34,35 @@ static osMessageQueueId_t s_event_queue;
  * --------------------------------------------------------------------- */
 
 /*
- * Reads the current date from DS1307 and formats it as YYYYMMDD
- * into buf (must be at least 9 bytes including null terminator).
- * Returns 1 on success, 0 on DS1307 read failure.
+ * Reads the DS1307 once and fills both output buffers.
+ * date_buf: at least 7 bytes — YYMMDD + null terminator.
+ * time_buf: at least 9 bytes — HH:MM:SS + null terminator.
+ * On DS1307 failure writes safe fallback strings to both buffers.
+ * Returns 1 on success, 0 on failure.
  */
-static uint8_t log_get_date_str(char *buf)
+static uint8_t log_get_datetime_strs(char *date_buf, char *time_buf)
 {
     Ds1307_Time_t t;
 
     if (DS1307_OK != Ds1307_GetTime(&t))
     {
-        (void)sprintf(buf, "700101");
+        (void)sprintf(date_buf, "700101");
+        (void)sprintf(time_buf, "--:--:--");
         return 0U;
     }
 
-    (void)sprintf(buf, "%02u%02u%02u",
+    (void)sprintf(date_buf, "%02u%02u%02u",
                   (unsigned)t.year,
                   (unsigned)t.month,
                   (unsigned)t.date);
+
+    (void)sprintf(time_buf, "%02u:%02u:%02u",
+                  (unsigned)t.hours,
+                  (unsigned)t.minutes,
+                  (unsigned)t.seconds);
+
     return 1U;
 }
-
 /*
  * Builds a full filename from prefix and date string.
  * e.g. prefix="DATA_", date="20260907" -> "DATA_20260907.csv"
@@ -244,15 +252,17 @@ osMessageQueueId_t Log_GetEventQueueHandle(void)
 
 void Log_WriteData(const MonitorData_t *data)
 {
-    char date_str[9];
+    char date_str[7];
+    char time_str[9];
     char filename[25];
-    char line[64];
+    char line[80];
 
-    log_get_date_str(date_str);
+    log_get_datetime_strs(date_str, time_str);
     log_build_filename(filename, LOG_DATA_PREFIX, date_str);
 
-    (void)sprintf(line, "%lu,%d,%u,%u,%u,%u\r\n",
+    (void)sprintf(line, "%lu,%s,%d,%u,%u,%u,%u\r\n",
                   (unsigned long)(HAL_GetTick() / 1000U),
+                  time_str,
                   (int)data->temperature,
                   (unsigned)data->humidity,
                   (unsigned)data->battery,
@@ -261,26 +271,28 @@ void Log_WriteData(const MonitorData_t *data)
 
     log_enforce_retention(LOG_DATA_PREFIX);
     (void)log_append_line(filename, line,
-                      "timestamp_s,temp_c,humidity_pct,battery_raw,light_raw,mode\r\n");
+                          "timestamp_s,wall_clock,temp_c,humidity_pct,battery_raw,light_raw,mode\r\n");
 }
 
 void Log_WriteEvent(const CommEventPayload_t *event)
 {
-    char date_str[9];
+    char date_str[7];
+    char time_str[9];
     char filename[25];
-    char line[48];
+    char line[64];
 
-    log_get_date_str(date_str);
+    log_get_datetime_strs(date_str, time_str);
     log_build_filename(filename, LOG_EVNT_PREFIX, date_str);
 
-    (void)sprintf(line, "%lu,%u,%u\r\n",
+    (void)sprintf(line, "%lu,%s,%u,%u\r\n",
                   (unsigned long)event->timestamp,
+                  time_str,
                   (unsigned)event->event_type,
                   (unsigned)event->detail);
 
     log_enforce_retention(LOG_EVNT_PREFIX);
     (void)log_append_line(filename, line,
-                      "timestamp_s,event_type,detail\r\n");
+                          "timestamp_s,wall_clock,event_type,detail\r\n");
 }
 
 void Log_Task(void *argument)
