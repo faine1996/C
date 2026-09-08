@@ -1058,3 +1058,185 @@ Event file (E{YYMMDD}.csv):
   A reset followed immediately by `./run_tests`, with no deliberate delay,
   gives the most reliable result. KEEPALIVE is unaffected, since it repeats
   periodically once Monitor is running.
+
+## [Hardware] False IR object detection ruled out as I2C/SET_TIME-induced noise
+
+- Decision: none (diagnostic note, investigation ongoing).
+- Reasoning: hypothesized that the false OBJECT_DETECTED events noted
+  earlier ("False IR object detection events occur without remote input")
+  might be electrical noise from the Ds1307_SetTime() I2C3 write that runs
+  right after the Central Computer replies to TIME_SYNC_REQ at boot —
+  IR_OBJECT (PB10) is a plain falling-edge EXTI interrupt with no debounce
+  or edge-count filtering (HAL_GPIO_EXTI_Callback in ir_receiver.c latches
+  on a single edge; a real remote press produces dozens to hundreds of
+  edges per the Stage-1 IR verification note above, so a single stray edge
+  is a plausible EMI signature). Tested by capturing a fresh boot with a
+  plain raw listener that never replies to TIME_SYNC_REQ — no SET_TIME,
+  no DS1307 I2C write occurs at all in that run — and the same
+  OBJECT_DETECTED event still fired. This rules out I2C/SET_TIME activity
+  as the cause.
+- Still consistent with the original conclusion: a hardware/environmental
+  sensitivity issue (ambient IR or light interference tripping the
+  demodulator), not a software bug. Narrowing further requires physical
+  inspection (shielding, ambient light source, or briefly disconnecting
+  the IR signal line to confirm the interrupt still fires spuriously) —
+  not something resolvable from the wire protocol or serial captures alone.
+
+## [CC] GET_DATA_RANGE / GET_EVENTS_RANGE request builders and response printing
+
+- Decision: added CentralComputer::sendGetDataRange(start, end) and
+  sendGetEventsRange(start, end), building the 8-byte start/end value per
+  docs/protocol_spec.txt and sending via the existing private sendFrame.
+  rxDispatch gained TAG_DATA_ITEM/TAG_EVENT_ITEM cases that decode and
+  print each streamed record (via the shared value_blocks decoders) and
+  a distinct end-of-stream print when LEN is 0.
+- Reasoning: mirrors the existing sendSetTime/sendSetConfig pattern for
+  the request side. On the response side, KEEPALIVE/EVENT's existing wall-
+  clock reconstruction (m_set_time_wall + LNC uptime seconds) does not
+  apply to DATA_ITEM/EVENT_ITEM — those records carry a true epoch
+  timestamp already (reconstructed on the LNC from each CSV row's
+  filename date + wall_clock field), so their timestamp is passed straight
+  to localtime() instead of being offset. Printed with a full date
+  (%Y-%m-%d %H:%M:%S) rather than KEEPALIVE/EVENT's time-only format,
+  since a range response can span multiple different days.
+- Note: this only covers printing a response when polled via the existing
+  processIncoming() path. Forwarding these records to a connected Ground
+  Station over TCP is a separate, not-yet-built piece (GroundStationLink).
+
+## [CC] Shared TLV codec extracted into submarine/shared/tlv/
+
+- Decision: CentralComputer's private TLV RX state machine (RxState_t,
+  RxFrame, rxFeedByte) and frame builder (sendFrame's byte-packing) were
+  extracted into tlv::UartFramer (submarine/shared/tlv/), a standalone
+  class with the same field names/logic, exposed via feedByte()/onFrame()/
+  buildFrame(). CentralComputer now owns a tlv::UartFramer member and
+  registers a lambda calling rxDispatch as its frame handler, instead of
+  implementing the state machine itself. The tag constants previously
+  duplicated as static const uint8_t in centralcomputer.cpp were likewise
+  moved into submarine/shared/tlv/tlv_tags.h (namespace tlv, constexpr —
+  see note below on why constexpr over static const). Value-block
+  encode/decode (MEASUREMENT BLOCK, EVENT BLOCK) were extracted the same
+  way into value_blocks.h/.cpp.
+- Reasoning: the Central Computer <-> Ground Station link (TCP) needs the
+  same tag constants and value-block encode/decode as the LNC <-> Central
+  Computer link (UART), but a different outer byte framing — length-
+  prefixed, no SOF/checksum, since TCP already guarantees ordered,
+  uncorrupted delivery (see the original "[Architecture] Two transports,
+  two framings" decision above). Rather than duplicating the RX state
+  machine a second time for the TCP side, the transport-independent parts
+  (tags, value blocks) are shared outright, and each transport gets its
+  own small framer (tlv::UartFramer, tlv::TcpFramer) with the same
+  interface shape, so code that needs to work across both (e.g. relaying
+  a decoded frame from one transport to the other) can be written
+  symmetrically.
+- Note: submarine/shared/tlv/ constants use constexpr rather than
+  static const specifically because this header is now #include'd by two
+  separate programs (central_computer and ground_station). A constexpr
+  variable at namespace scope is implicitly inline in C++17, so multiple
+  translation units including it are not an ODR violation; static const
+  would give each translation unit — and, with two whole programs
+  involved, each program — its own private copy rather than one shared
+  definition, which was a fine hidden detail when this list only lived
+  inside centralcomputer.cpp's own single translation unit.
+- Verified: existing central_computer test suite unaffected by the
+  refactor (37/37 passing on a fresh board reset, matching pre-refactor
+  results) — the extraction is behavior-preserving.
+
+## [CC] SocketComm — TCP counterpart to SerialComm
+
+- Decision: added SocketComm (central_computer/inc+src/socketcomm.h/.cpp),
+  mirroring SerialComm's shape exactly: RAII fd ownership, copy deleted/
+  move-only, send(const uint8_t*, uint8_t)/recv(uint8_t*, uint8_t)->int
+  with the same "0 = no data, -1 = closed" contract. Owns both a listening
+  socket and, once accepted, one client connection — one Ground Station
+  at a time, per this project's scope.
+- Reasoning: TCP's recv() returning 0 means the peer closed the
+  connection gracefully — a case SerialComm never has to handle, since a
+  serial port doesn't "hang up." To preserve the same 0/-1 contract
+  GroundStationLink and CentralComputer rely on, SocketComm::recv()
+  actively detects that 0 case, closes the client fd, and reports -1,
+  rather than literally reusing SerialComm's code.
+- Bug found and fixed during review: bind()'s length argument was
+  written as `0 > sizeof(addr)` instead of `sizeof(addr)`, with the
+  Yoda-comparison convention mechanically applied to a value being
+  passed as an argument, not a comparison. sizeof() is never negative,
+  so this always evaluated to false (0), passing a nonsensical struct
+  length to bind(). Caught by inspection, not a build/runtime failure —
+  fixed to `0 > bind(m_listenFd, (struct sockaddr *)&addr, sizeof(addr))`,
+  matching the correctly-Yoda'd listen() check right below it.
+- Bug found and fixed: acceptClient() blocks on a plain accept(), which
+  meant GroundStationLink's destructor (m_stop = true; m_thread.join();)
+  could hang forever if no Ground Station had ever connected — setting a
+  flag has no effect on a syscall already blocked in the kernel. Fixed by
+  setting SO_RCVTIMEO (500ms) on the listening socket in the constructor,
+  which on Linux also bounds accept()'s blocking time, and treating an
+  EAGAIN/EWOULDBLOCK return from accept() as "try again," not an error.
+  Verified: central_computer now exits in ~0.5s (matching the timeout)
+  after option 10, even with GroundStationLink's thread never having
+  accepted a connection, versus never returning before the fix.
+
+## [CC] GroundStationLink — background thread relaying GS requests to the LNC
+
+- Decision: added GroundStationLink (central_computer/inc+src/
+  groundstationlink.h/.cpp). Owns a SocketComm + tlv::TcpFramer and runs
+  its own std::thread. Registers its TcpFramer's onFrame callback in the
+  constructor exactly like CentralComputer registers its UartFramer's
+  callback (same [this]{ ... } pattern) — when a full GET_DATA_RANGE/
+  GET_EVENTS_RANGE request frame arrives from a connected Ground Station,
+  relayRequest() locks CentralComputer::uartMutex(), forwards the request
+  via the existing sendGetDataRange/sendGetEventsRange, then repeatedly
+  calls cc.processIncoming() — relaying each DATA_ITEM/EVENT_ITEM (via
+  CentralComputer::setRangeItemHandler(), which redirects rxDispatch's
+  normal print into a forward-to-GS callback instead) until the end-of-
+  stream frame arrives or 5 seconds pass with no new data, whichever is
+  first. On timeout, synthesizes and sends its own end-of-stream frame so
+  the Ground Station doesn't hang waiting either.
+- Reasoning for the mutex: menu.cpp's regular processIncoming() polling
+  and GroundStationLink's relay loop both touch the same SerialComm
+  underneath — CentralComputer::uartMutex() is the single mutex both call
+  sites lock, so a range request in flight and the menu's own polling
+  never interleave bytes on the same link.
+- Reasoning for the CentralComputer additions this required
+  (uartMutex(), setRangeItemHandler()): rxDispatch's DATA_ITEM/EVENT_ITEM
+  cases needed a way to forward instead of print while a request is being
+  relayed, without GroundStationLink needing its own separate UartFramer
+  instance or duplicating any RX state.
+- Verified end-to-end on real hardware: a Python TCP client connected to
+  port 5555, sent a GET_DATA_RANGE frame, and received a 2-byte `00 81`
+  (LEN=0, TAG=DATA_ITEM) end-of-stream response — correct given the LNC's
+  GET_DATA_RANGE handler is still the original stub (empty response);
+  the full CC-side relay path (lock, forward, wait, relay, unlock) worked
+  correctly. Real DATA_ITEM records will flow through this same path
+  unchanged once the LNC-side CSV reading is built.
+
+## [CC] Menu/main.cpp wiring — GroundStationLink constructed lazily
+
+- Decision: Menu gained a std::unique_ptr<GroundStationLink> m_gsLink
+  member (default null). It is constructed inside addSubmarine(), at the
+  exact point sub->getComputer().isLive() is confirmed true for the first
+  live CombatSubmarine — not in main.cpp, and not in Menu's constructor.
+- Reasoning: GroundStationLink takes CentralComputer& by reference and
+  starts its background thread immediately in its own constructor, so it
+  cannot exist before a real, open CentralComputer does. m_live_sub itself
+  is not set until this same point in addSubmarine() (and may never be
+  set at all in a run with no live LNC) — this is the only moment in the
+  program where a genuine live link exists to reference. unique_ptr was
+  used specifically because Menu needs a member that starts empty and is
+  filled in later, unlike GroundStationLink's other dependencies which
+  all exist at construction time.
+- Note: Menu's move constructor/assignment were updated to move m_gsLink
+  alongside m_fleet/m_live_sub. m_fleet holds Submarine* (heap pointers,
+  not values), so the CombatSubmarine object GroundStationLink's m_cc
+  reference points into never moves address even if the owning Menu
+  object itself is moved — the reference stays valid. Not exercised in
+  practice (main.cpp never moves its Menu), but verified correct by
+  inspection since Menu declares full move support.
+- Build fix: run_tests' CMakeLists.txt source list did not originally
+  include socketcomm.cpp/groundstationlink.cpp, on the reasoning that
+  test_runner.cpp never uses those classes directly. This missed that
+  menu.cpp — which run_tests does compile, to exercise Menu — now
+  unconditionally references GroundStationLink's constructor/destructor
+  inside addSubmarine(), regardless of whether that code path executes at
+  runtime (the tests' own submarines use /dev/null ports, so it never
+  does). The linker still needs those symbols to resolve. Fixed by adding
+  both files to run_tests' source list, matching central_computer's own.

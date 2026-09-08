@@ -4,8 +4,11 @@
 #include "submarine.h"
 #include "combatsubmarine.h"
 #include "researchsubmarine.h"
+#include "groundstationlink.h"
 #include <vector>
 #include <string>
+#include <memory>
+
 
 class Menu
 {
@@ -52,9 +55,11 @@ public:
     void run();
 
 private:
+    private:
     std::vector<Submarine *> m_fleet;
     CombatSubmarine         *m_live_sub;
     bool                     m_running;
+    std::unique_ptr<GroundStationLink> m_gsLink;
 
     /* ---- menu option methods ---- */
 

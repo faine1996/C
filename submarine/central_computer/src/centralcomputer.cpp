@@ -1,19 +1,11 @@
 #include "centralcomputer.h"
+#include "tlv_tags.h"
+#include "value_blocks.h"
 #include <iostream>
 #include <cstring>
 #include <ctime>
 
 using namespace std;
-
-/* TLV constants — match LNC comm.h exactly */
-static const uint8_t COMM_SOF          = 0xAAU;
-static const uint8_t TAG_SET_TIME      = 0x21U;
-static const uint8_t TAG_SET_CONFIG    = 0x20U;
-static const uint8_t TAG_KEEPALIVE     = 0x10U;
-static const uint8_t TAG_EVENT         = 0x11U;
-static const uint8_t TAG_TIME_SYNC_REQ = 0x13U;
-static const uint8_t TAG_GET_TIME      = 0x22U;
-static const uint8_t TAG_TIME_REPORT   = 0x80U;
 
 static const char *MODE_NAMES[]  = { "Normal", "Warning", "Error" };
 static const char *EVENT_NAMES[] = {
@@ -29,13 +21,16 @@ static const char *EVENT_NAMES[] = {
  * Constructors / destructor / Big Five
  * --------------------------------------------------------------------- */
 
-/* Default constructor — non-live CC */
+/* Default constructor */
 CentralComputer::CentralComputer()
     : m_comms(nullptr),
       m_set_time_wall(0),
       m_time_synced(false)
 {
-    rxReset();
+    m_framer.onFrame([this](uint8_t tag, const uint8_t *value, uint8_t len)
+    {
+        rxDispatch(tag, value, len);
+    });
 }
 
 /* Overloaded constructor — live CC with serial port */
@@ -44,7 +39,10 @@ CentralComputer::CentralComputer(const string &port)
       m_set_time_wall(0),
       m_time_synced(false)
 {
-    rxReset();
+    m_framer.onFrame([this](uint8_t tag, const uint8_t *value, uint8_t len)
+    {
+        rxDispatch(tag, value, len);
+    });
 
     if (!m_comms->isOpen())
     {
@@ -58,6 +56,8 @@ CentralComputer::CentralComputer(const string &port)
     }
 }
 
+
+
 CentralComputer::~CentralComputer()
 {
     delete m_comms;
@@ -67,11 +67,16 @@ CentralComputer::~CentralComputer()
 CentralComputer::CentralComputer(CentralComputer &&other)
     : m_comms(other.m_comms),
       m_set_time_wall(other.m_set_time_wall),
-      m_time_synced(other.m_time_synced),
-      m_rx(other.m_rx)
+      m_time_synced(other.m_time_synced)
 {
     other.m_comms = nullptr;
+
+    m_framer.onFrame([this](uint8_t tag, const uint8_t *value, uint8_t len)
+    {
+        rxDispatch(tag, value, len);
+    });
 }
+
 
 /* Move assignment */
 CentralComputer &CentralComputer::operator=(CentralComputer &&other)
@@ -82,7 +87,6 @@ CentralComputer &CentralComputer::operator=(CentralComputer &&other)
         m_comms          = other.m_comms;
         m_set_time_wall  = other.m_set_time_wall;
         m_time_synced    = other.m_time_synced;
-        m_rx             = other.m_rx;
         other.m_comms    = nullptr;
     }
 
@@ -112,7 +116,7 @@ void CentralComputer::sendSetTime(const struct tm &t)
     value[5] = (uint8_t)t.tm_min;
     value[6] = (uint8_t)t.tm_sec;
 
-    sendFrame(TAG_SET_TIME, value, 7U);
+    sendFrame(tlv::TAG_SET_TIME, value, 7U);
 
     /* Record wall-clock baseline for timestamp reconstruction */
     m_set_time_wall = time(nullptr);
@@ -129,11 +133,48 @@ void CentralComputer::sendSetConfig(uint8_t param_id,
 
     buf[0] = param_id;
     memcpy(buf + 1, value, len);
-    sendFrame(TAG_SET_CONFIG, buf, (uint8_t)(len + 1U));
+    sendFrame(tlv::TAG_SET_CONFIG, buf, (uint8_t)(len + 1U));
 
     cout << "[CC-TX] SET_CONFIG param_id=0x"
          << hex << (unsigned)param_id << dec << "\n";
 }
+
+void CentralComputer::sendGetDataRange(uint32_t start, uint32_t end)
+{
+    uint8_t value[8];
+
+    value[0] = (uint8_t)(start & 0xFFU);
+    value[1] = (uint8_t)((start >> 8)  & 0xFFU);
+    value[2] = (uint8_t)((start >> 16) & 0xFFU);
+    value[3] = (uint8_t)((start >> 24) & 0xFFU);
+    value[4] = (uint8_t)(end & 0xFFU);
+    value[5] = (uint8_t)((end >> 8)  & 0xFFU);
+    value[6] = (uint8_t)((end >> 16) & 0xFFU);
+    value[7] = (uint8_t)((end >> 24) & 0xFFU);
+
+    sendFrame(tlv::TAG_GET_DATA_RANGE, value, 8U);
+
+    cout << "[CC-TX] GET_DATA_RANGE start:" << start << " end:" << end << "\n";
+}
+
+void CentralComputer::sendGetEventsRange(uint32_t start, uint32_t end)
+{
+    uint8_t value[8];
+
+    value[0] = (uint8_t)(start & 0xFFU);
+    value[1] = (uint8_t)((start >> 8)  & 0xFFU);
+    value[2] = (uint8_t)((start >> 16) & 0xFFU);
+    value[3] = (uint8_t)((start >> 24) & 0xFFU);
+    value[4] = (uint8_t)(end & 0xFFU);
+    value[5] = (uint8_t)((end >> 8)  & 0xFFU);
+    value[6] = (uint8_t)((end >> 16) & 0xFFU);
+    value[7] = (uint8_t)((end >> 24) & 0xFFU);
+
+    sendFrame(tlv::TAG_GET_EVENTS_RANGE, value, 8U);
+
+    cout << "[CC-TX] GET_EVENTS_RANGE start:" << start << " end:" << end << "\n";
+}
+
 
 void CentralComputer::processIncoming()
 {
@@ -149,8 +190,20 @@ void CentralComputer::processIncoming()
 
     for (int i = 0; i < n; ++i)
     {
-        rxFeedByte(buf[i]);
+        m_framer.feedByte(buf[i]);
     }
+
+}
+
+
+std::mutex &CentralComputer::uartMutex()
+{
+    return m_uartMutex;
+}
+
+void CentralComputer::setRangeItemHandler(RangeItemHandler handler)
+{
+    m_rangeItemHandler = std::move(handler);
 }
 
 /* -----------------------------------------------------------------------
@@ -162,8 +215,6 @@ void CentralComputer::sendFrame(uint8_t tag,
                                 uint8_t len)
 {
     uint8_t  buf[259];
-    uint8_t  chk;
-    uint8_t  i;
     uint16_t frame_len;
 
     if (m_comms == nullptr)
@@ -171,19 +222,7 @@ void CentralComputer::sendFrame(uint8_t tag,
         return;
     }
 
-    chk    = (uint8_t)(tag + len);
-    buf[0] = COMM_SOF;
-    buf[1] = tag;
-    buf[2] = len;
-
-    for (i = 0U; i < len; ++i)
-    {
-        buf[3U + i] = value[i];
-        chk = (uint8_t)(chk + value[i]);
-    }
-
-    buf[3U + len] = chk;
-    frame_len     = (uint16_t)(4U + len);
+    frame_len = tlv::UartFramer::buildFrame(tag, value, len, buf);
 
     m_comms->send(buf, (uint8_t)frame_len);
 }
@@ -191,64 +230,6 @@ void CentralComputer::sendFrame(uint8_t tag,
 /* -----------------------------------------------------------------------
  * Private — RX state machine
  * --------------------------------------------------------------------- */
-
-void CentralComputer::rxReset()
-{
-    m_rx.state          = RX_WAIT_SOF;
-    m_rx.tag            = 0U;
-    m_rx.len            = 0U;
-    m_rx.value_idx      = 0U;
-    m_rx.checksum_accum = 0U;
-}
-
-void CentralComputer::rxFeedByte(uint8_t byte)
-{
-    switch (m_rx.state)
-    {
-        case RX_WAIT_SOF:
-            if (COMM_SOF == byte)
-            {
-                m_rx.state = RX_READ_TAG;
-            }
-            break;
-
-        case RX_READ_TAG:
-            m_rx.tag            = byte;
-            m_rx.checksum_accum = byte;
-            m_rx.state          = RX_READ_LEN;
-            break;
-
-        case RX_READ_LEN:
-            m_rx.len            = byte;
-            m_rx.checksum_accum = (uint8_t)(m_rx.checksum_accum + byte);
-            m_rx.value_idx      = 0U;
-            m_rx.state = (0U == byte) ? RX_READ_CHK : RX_READ_VALUE;
-            break;
-
-        case RX_READ_VALUE:
-            m_rx.value[m_rx.value_idx] = byte;
-            m_rx.checksum_accum = (uint8_t)(m_rx.checksum_accum + byte);
-            ++m_rx.value_idx;
-
-            if (m_rx.value_idx >= m_rx.len)
-            {
-                m_rx.state = RX_READ_CHK;
-            }
-            break;
-
-        case RX_READ_CHK:
-            if (byte == m_rx.checksum_accum)
-            {
-                rxDispatch(m_rx.tag, m_rx.value, m_rx.len);
-            }
-            rxReset();
-            break;
-
-        default:
-            rxReset();
-            break;
-    }
-}
 
 void CentralComputer::rxDispatch(uint8_t tag,
                                  const uint8_t *value,
@@ -268,7 +249,7 @@ void CentralComputer::rxDispatch(uint8_t tag,
 
     switch (tag)
     {
-        case TAG_KEEPALIVE:
+        case tlv::TAG_KEEPALIVE:
             if (len < 12U)
             {
                 break;
@@ -306,9 +287,9 @@ void CentralComputer::rxDispatch(uint8_t tag,
                  << " light:" << (unsigned)light
                  << " mode:"  << (mode < 3 ? MODE_NAMES[mode] : "?")
                  << "\n";
-            break;
+        break;
 
-        case TAG_EVENT:
+        case tlv::TAG_EVENT:
             if (len < 6U)
             {
                 break;
@@ -352,9 +333,9 @@ void CentralComputer::rxDispatch(uint8_t tag,
             }
 
             cout << "\n";
-            break;
+        break;
 
-        case TAG_TIME_SYNC_REQ:
+        case tlv::TAG_TIME_SYNC_REQ:
             /* LNC is requesting time — send current system time */
             cout << "[CC-RX] TIME_SYNC_REQ received — sending SET_TIME\n";
             {
@@ -362,9 +343,9 @@ void CentralComputer::rxDispatch(uint8_t tag,
                 struct tm *t = localtime(&now);
                 sendSetTime(*t);
             }
-            break;
+        break;
 
-        case TAG_GET_TIME:
+        case tlv::TAG_GET_TIME:
             /* LNC is asking for current time as epoch seconds */
             {
                 uint8_t  resp[4];
@@ -373,10 +354,94 @@ void CentralComputer::rxDispatch(uint8_t tag,
                 resp[1] = (uint8_t)((now_s >> 8)  & 0xFFU);
                 resp[2] = (uint8_t)((now_s >> 16) & 0xFFU);
                 resp[3] = (uint8_t)((now_s >> 24) & 0xFFU);
-                sendFrame(TAG_TIME_REPORT, resp, 4U);
+                sendFrame(tlv::TAG_TIME_REPORT, resp, 4U);
             }
             break;
+        
+            case tlv::TAG_DATA_ITEM:
+                if (m_rangeItemHandler)
+                {
+                    m_rangeItemHandler(tag, value, len);
+                    break;
+                }
+                if (0U == len)
+                {
+                    cout << "[CC-RX] DATA_ITEM end-of-stream\n";
+                    break;
+                }
 
+                if (len < tlv::MEASUREMENT_BLOCK_LEN)
+                {
+                    break;
+                }
+
+                {
+                    tlv::MeasurementBlock block = tlv::decodeMeasurementBlock(value);
+                    time_t     wall    = (time_t)block.timestamp;
+                    struct tm *wall_tm = localtime(&wall);
+                    char       time_buf[20];
+
+                    strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", wall_tm);
+
+                    cout << "[CC-RX] DATA_ITEM"
+                        << " time:"  << time_buf
+                        << " temp:"  << (int)block.temp << "c"
+                        << " hum:"   << (unsigned)block.humidity << "%"
+                        << " batt:"  << (unsigned)block.battery
+                        << " light:" << (unsigned)block.light
+                        << " mode:"  << (block.mode < 3 ? MODE_NAMES[block.mode] : "?")
+                        << "\n";
+                }
+        break;
+
+        case tlv::TAG_EVENT_ITEM:
+            if (m_rangeItemHandler)
+            {
+                m_rangeItemHandler(tag, value, len);
+                break;
+            }
+
+            if (0U == len)
+            {
+                cout << "[CC-RX] EVENT_ITEM end-of-stream\n";
+                break;
+            }
+
+
+            if (len < tlv::EVENT_BLOCK_LEN)
+            {
+                break;
+            }
+
+            {
+                tlv::EventBlock block   = tlv::decodeEventBlock(value);
+                time_t     wall    = (time_t)block.timestamp;
+                struct tm *wall_tm = localtime(&wall);
+                char       time_buf[20];
+
+                strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", wall_tm);
+
+                cout << "[CC-RX] EVENT_ITEM"
+                     << " time:" << time_buf
+                     << " type:" << (block.eventType < 6 ? EVENT_NAMES[block.eventType] : "?");
+
+                if (1U == block.eventType)
+                {
+                    cout << " new_mode:" << (block.detail < 3 ? MODE_NAMES[block.detail] : "?");
+                }
+                else if (2U == block.eventType)
+                {
+                    cout << " object:" << (block.detail == 0 ? "detected" : "cleared");
+                }
+                else if (5U == block.eventType)
+                {
+                    cout << " wd_reset:" << (block.detail ? "yes" : "no");
+                }
+
+                cout << "\n";
+            }
+        break;
+        
         default:
             cout << "[CC-RX] Unknown tag 0x"
                  << hex << (unsigned)tag << dec << " — ignored\n";

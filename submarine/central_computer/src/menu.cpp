@@ -4,6 +4,8 @@
 
 using namespace std;
 
+static const uint16_t GS_LINK_PORT = 5555;
+
 Menu::Menu()
     : m_live_sub(nullptr),
       m_running(true)
@@ -21,7 +23,8 @@ Menu::~Menu()
 Menu::Menu(Menu &&other)
     : m_fleet(move(other.m_fleet)),
       m_live_sub(other.m_live_sub),
-      m_running(other.m_running)
+      m_running(other.m_running),
+      m_gsLink(move(other.m_gsLink))
 {
     other.m_live_sub = nullptr;
     other.m_running  = false;
@@ -39,6 +42,7 @@ Menu &Menu::operator=(Menu &&other)
         m_fleet          = move(other.m_fleet);
         m_live_sub       = other.m_live_sub;
         m_running        = other.m_running;
+        m_gsLink         = move(other.m_gsLink);
         other.m_live_sub = nullptr;
         other.m_running  = false;
     }
@@ -157,6 +161,7 @@ void Menu::addSubmarine()
             if (sub->getComputer().isLive())
             {
                 m_live_sub = sub;
+                m_gsLink   = make_unique<GroundStationLink>(sub->getComputer(), GS_LINK_PORT);
                 cout << "Combat submarine added as live unit.\n";
             }
             else
