@@ -5,6 +5,9 @@
 #include "usart.h"
 #include "config.h"
 #include "init.h"
+#include "log.h"
+#include "timeutil.h"
+#include "ff.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -13,6 +16,15 @@ extern UART_HandleTypeDef huart2;
 
 /* RX poll timeout — short so TX is not held up waiting for incoming bytes */
 #define COMM_RX_TIMEOUT_MS  10U
+
+/* Hard cap on how many calendar days a GET_DATA_RANGE/GET_EVENTS_RANGE
+ * request will iterate, regardless of the requested start/end. Nothing
+ * older than LOG_MAX_FILES (7) days can exist on the SD card anyway, so
+ * a wider request can never find more data — but without this cap, a
+ * request spanning years would loop through that many f_open() attempts
+ * without yielding, starving Watchdog_Task and triggering an IWDG reset.
+ * One extra day of slack beyond the 7-day retention window. */
+#define GET_RANGE_MAX_DAYS  8UL
 
 /* TX queue depth — how many outgoing messages can queue up before blocking */
 #define COMM_TX_QUEUE_DEPTH 4U
@@ -305,17 +317,245 @@ static void dispatch_command(uint8_t tag, const uint8_t *value, uint8_t len)
             break;
 
         case TAG_GET_DATA_RANGE:
-            /* Stage 6: query SD card and stream DATA_ITEMs. Stub for now. */
-            printf("[COMM-RX] GET_DATA_RANGE received\r\n");
-            /* Send empty end-of-stream marker */
-            Comm_SendFrame(0x81U, NULL, 0U);
+            if (8U != len)
+            {
+                printf("[COMM-RX] GET_DATA_RANGE: bad length %u — ignored\r\n",
+                       (unsigned)len);
+                break;
+            }
+            {
+                uint32_t range_start;
+                uint32_t range_end;
+                uint32_t day_epoch;
+                uint32_t end_day_epoch;
+                uint8_t  yy;
+                uint8_t  mm;
+                uint8_t  dd;
+                char     date_str[16];
+                char     filename[25];
+                FIL      fil;
+                FRESULT  fres;
+                char     line[96];
+                uint8_t  first_line;
+
+                range_start = (uint32_t)value[0]
+                            | ((uint32_t)value[1] << 8)
+                            | ((uint32_t)value[2] << 16)
+                            | ((uint32_t)value[3] << 24);
+
+                range_end = (uint32_t)value[4]
+                          | ((uint32_t)value[5] << 8)
+                          | ((uint32_t)value[6] << 16)
+                          | ((uint32_t)value[7] << 24);
+
+                printf("[COMM-RX] GET_DATA_RANGE start=%lu end=%lu\r\n",
+                       (unsigned long)range_start, (unsigned long)range_end);
+
+                day_epoch     = (range_start / 86400UL) * 86400UL;
+                end_day_epoch = (range_end   / 86400UL) * 86400UL;
+
+                if ((end_day_epoch - day_epoch) / 86400UL >= GET_RANGE_MAX_DAYS)
+                {
+                    end_day_epoch = day_epoch + (GET_RANGE_MAX_DAYS - 1UL) * 86400UL;
+                }
+
+                for (; day_epoch <= end_day_epoch; day_epoch += 86400UL)
+                {
+                    TimeUtil_FromEpoch(day_epoch, &yy, &mm, &dd);
+                    sprintf(date_str, "%02u%02u%02u", (unsigned)yy, (unsigned)mm, (unsigned)dd);
+                    Log_BuildFilename(filename, "D", date_str);
+
+                    fres = f_open(&fil, filename, FA_READ);
+
+                    if (FR_OK != fres)
+                    {
+                        continue;
+                    }
+
+                    first_line = 1U;
+
+                    while (0 != f_gets(line, sizeof(line), &fil))
+                    {
+                        unsigned long ignored_ts;
+                        int           hh;
+                        int           mi;
+                        int           ss;
+                        int           temp;
+                        unsigned      hum;
+                        unsigned      batt;
+                        unsigned      light;
+                        unsigned      mode;
+                        int           parsed;
+
+                        if (1U == first_line)
+                        {
+                            first_line = 0U;
+                            continue;
+                        }
+
+                        parsed = sscanf(line, "%lu,%d:%d:%d,%d,%u,%u,%u,%u",
+                                        &ignored_ts, &hh, &mi, &ss,
+                                        &temp, &hum, &batt, &light, &mode);
+
+                        if (9 != parsed)
+                        {
+                            continue;
+                        }
+
+                        {
+                            uint32_t row_epoch;
+                            uint8_t  item_value[12];
+                            uint16_t itemp;
+
+                            row_epoch = TimeUtil_ToEpoch(yy, mm, dd,
+                                                         (uint8_t)hh, (uint8_t)mi, (uint8_t)ss);
+
+                            if (row_epoch < range_start || row_epoch > range_end)
+                            {
+                                continue;
+                            }
+
+                            item_value[0] = (uint8_t)(row_epoch & 0xFFU);
+                            item_value[1] = (uint8_t)((row_epoch >> 8)  & 0xFFU);
+                            item_value[2] = (uint8_t)((row_epoch >> 16) & 0xFFU);
+                            item_value[3] = (uint8_t)((row_epoch >> 24) & 0xFFU);
+
+                            itemp = (uint16_t)temp;
+                            item_value[4] = (uint8_t)(itemp & 0xFFU);
+                            item_value[5] = (uint8_t)((itemp >> 8) & 0xFFU);
+
+                            item_value[6] = (uint8_t)hum;
+
+                            item_value[7] = (uint8_t)(batt & 0xFFU);
+                            item_value[8] = (uint8_t)((batt >> 8) & 0xFFU);
+
+                            item_value[9]  = (uint8_t)(light & 0xFFU);
+                            item_value[10] = (uint8_t)((light >> 8) & 0xFFU);
+
+                            item_value[11] = (uint8_t)mode;
+
+                            Comm_SendFrame(TAG_DATA_ITEM, item_value, 12U);
+                        }
+                    }
+
+                    (void)f_close(&fil);
+                }
+
+                Comm_SendFrame(TAG_DATA_ITEM, NULL, 0U);
+            }
             break;
 
         case TAG_GET_EVENTS_RANGE:
-            /* Stage 6: query SD card and stream EVENT_ITEMs. Stub for now. */
-            printf("[COMM-RX] GET_EVENTS_RANGE received\r\n");
-            /* Send empty end-of-stream marker */
-            Comm_SendFrame(0x82U, NULL, 0U);
+            if (8U != len)
+            {
+                printf("[COMM-RX] GET_EVENTS_RANGE: bad length %u — ignored\r\n",
+                       (unsigned)len);
+                break;
+            }
+            {
+                uint32_t range_start;
+                uint32_t range_end;
+                uint32_t day_epoch;
+                uint32_t end_day_epoch;
+                uint8_t  yy;
+                uint8_t  mm;
+                uint8_t  dd;
+                char     date_str[16];
+                char     filename[25];
+                FIL      fil;
+                FRESULT  fres;
+                char     line[96];
+                uint8_t  first_line;
+
+                range_start = (uint32_t)value[0]
+                            | ((uint32_t)value[1] << 8)
+                            | ((uint32_t)value[2] << 16)
+                            | ((uint32_t)value[3] << 24);
+
+                range_end = (uint32_t)value[4]
+                          | ((uint32_t)value[5] << 8)
+                          | ((uint32_t)value[6] << 16)
+                          | ((uint32_t)value[7] << 24);
+
+                printf("[COMM-RX] GET_EVENTS_RANGE start=%lu end=%lu\r\n",
+                       (unsigned long)range_start, (unsigned long)range_end);
+
+                day_epoch     = (range_start / 86400UL) * 86400UL;
+                end_day_epoch = (range_end   / 86400UL) * 86400UL;
+
+                if ((end_day_epoch - day_epoch) / 86400UL >= GET_RANGE_MAX_DAYS)
+                {
+                    end_day_epoch = day_epoch + (GET_RANGE_MAX_DAYS - 1UL) * 86400UL;
+                }
+
+                for (; day_epoch <= end_day_epoch; day_epoch += 86400UL)
+                {
+                    TimeUtil_FromEpoch(day_epoch, &yy, &mm, &dd);
+                    sprintf(date_str, "%02u%02u%02u", (unsigned)yy, (unsigned)mm, (unsigned)dd);
+                    Log_BuildFilename(filename, "E", date_str);
+
+                    fres = f_open(&fil, filename, FA_READ);
+
+                    if (FR_OK != fres)
+                    {
+                        continue;
+                    }
+
+                    first_line = 1U;
+
+                    while (0 != f_gets(line, sizeof(line), &fil))
+                    {
+                        unsigned long ignored_ts;
+                        int           hh;
+                        int           mi;
+                        int           ss;
+                        unsigned      ev_type;
+                        unsigned      detail;
+                        int           parsed;
+
+                        if (1U == first_line)
+                        {
+                            first_line = 0U;
+                            continue;
+                        }
+
+                        parsed = sscanf(line, "%lu,%d:%d:%d,%u,%u",
+                                        &ignored_ts, &hh, &mi, &ss,
+                                        &ev_type, &detail);
+
+                        if (6 != parsed)
+                        {
+                            continue;
+                        }
+
+                        {
+                            uint32_t row_epoch;
+                            uint8_t  item_value[6];
+
+                            row_epoch = TimeUtil_ToEpoch(yy, mm, dd,
+                                                         (uint8_t)hh, (uint8_t)mi, (uint8_t)ss);
+
+                            if (row_epoch < range_start || row_epoch > range_end)
+                            {
+                                continue;
+                            }
+
+                            item_value[0] = (uint8_t)ev_type;
+                            item_value[1] = (uint8_t)detail;
+                            item_value[2] = (uint8_t)(row_epoch & 0xFFU);
+                            item_value[3] = (uint8_t)((row_epoch >> 8)  & 0xFFU);
+                            item_value[4] = (uint8_t)((row_epoch >> 16) & 0xFFU);
+                            item_value[5] = (uint8_t)((row_epoch >> 24) & 0xFFU);
+
+                            Comm_SendFrame(TAG_EVENT_ITEM, item_value, 6U);
+                        }
+                    }
+
+                    (void)f_close(&fil);
+                }
+
+                Comm_SendFrame(TAG_EVENT_ITEM, NULL, 0U);
+            }
             break;
 
         default:

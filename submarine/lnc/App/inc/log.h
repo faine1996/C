@@ -21,6 +21,19 @@
 void Log_Init(void);
 
 /**
+ * @brief   Builds a full filename from a prefix and a date string, e.g.
+ *          prefix="D", date="260909" -> "D260909.csv" (with USERPath
+ *          prepended). Exposed so the Comm module's GET_DATA_RANGE/
+ *          GET_EVENTS_RANGE handlers can open the same files this module
+ *          writes, without duplicating the naming convention.
+ * @param   buf       Output buffer, at least 20 bytes.
+ * @param   prefix    File prefix ("D" for data, "E" for events).
+ * @param   date_str  Date string, "YYMMDD".
+ * @retval  None.
+ */
+void Log_BuildFilename(char *buf, const char *prefix, const char *date_str);
+
+/**
  * @brief   Appends one measurement record to today's data log file on the
  *          SD card. The filename is derived from the current DS1307 date
  *          in the format DATA_YYYYMMDD.csv. Each record is a single CSV

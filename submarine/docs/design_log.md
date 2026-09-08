@@ -1240,3 +1240,122 @@ Event file (E{YYMMDD}.csv):
   runtime (the tests' own submarines use /dev/null ports, so it never
   does). The linker still needs those symbols to resolve. Fixed by adding
   both files to run_tests' source list, matching central_computer's own.
+
+## [LNC] TimeUtil module — civil date <-> epoch conversion
+
+- Decision: added App/inc/timeutil.h + App/src/modules/timeutil.c.
+  TimeUtil_ToEpoch(yy, mm, dd, hh, mi, ss) and TimeUtil_FromEpoch(epoch,
+  &yy, &mm, &dd) convert between a 2-digit-year civil date/time and Unix
+  epoch seconds, using Howard Hinnant's public-domain "days_from_civil"/
+  "civil_from_days" algorithm rather than deriving calendar math from
+  scratch — correct for all valid dates including leap years, no
+  floating point, no <time.h> dependency (none exists on this embedded
+  target). No prior epoch-conversion helper existed anywhere in the
+  codebase (checked Ds1307.h — confirmed absent).
+- Reasoning this exists at all: GET_DATA_RANGE/GET_EVENTS_RANGE need to
+  compare a query's start/end against real calendar time, but the only
+  absolute time information stored per CSV row is the filename's date
+  (YYMMDD) plus the row's wall_clock (HH:MM:SS) — the stored timestamp_s
+  column is HAL_GetTick()/1000, boot-relative and meaningless across the
+  multi-day, multi-boot files a range query spans (see the earlier CC
+  Tests entry above on the same subject). TimeUtil reconstructs a true
+  epoch value from those two pieces.
+- Verified off-hardware before ever touching the board: compiled
+  standalone with `gcc -std=c89 -Wall -Wextra` and checked against a
+  known reference date, two leap-year boundaries (2000 and 2024, plus the
+  day-after-leap-day rollover into March), and five round-trip checks
+  cross-validated against the host's own libc gmtime() — all passed.
+  Chosen specifically because this module has zero hardware dependency,
+  so correctness could be fully established before any flash/reset cycle
+  was needed, given how much manual effort has gone into the working SD
+  card setup.
+
+## [LNC] Log_BuildFilename exposed as public API
+
+- Decision: log_build_filename (log.c, static) renamed to
+  Log_BuildFilename and declared in log.h. Function body unchanged —
+  only the name and linkage changed. Both existing call sites inside
+  Log_WriteData and Log_WriteEvent updated to match.
+- Reasoning: comm.c's new GET_DATA_RANGE/GET_EVENTS_RANGE handlers need
+  to open the exact same files Log_WriteData/Log_WriteEvent write, and
+  must not duplicate the naming convention (prefix + YYMMDD + USERPath)
+  independently — one name in one place, used by both the write and read
+  paths, so they can never drift apart. Renamed to PascalCase with the
+  Log_ prefix (matching Log_Init, Log_WriteData) rather than leaving the
+  lowercase snake_case name with only `static` removed, since it is now
+  genuinely public, cross-module API, not a private helper — consistent
+  with how this file already distinguishes the two elsewhere.
+
+## [LNC] GET_DATA_RANGE / GET_EVENTS_RANGE implemented — first FatFs read-path code
+
+- Decision: dispatch_command's two stub cases (comm.c) now actually read
+  the SD card. For a requested [start, end] epoch range: truncate both to
+  midnight, step day-by-day between them, build each day's filename via
+  Log_BuildFilename, open with FA_READ (FR_NO_FILE just means skip that
+  day — no error, since a day with no log or one already rotated out by
+  the 7-day retention policy is an expected, routine outcome). For each
+  open file: skip the header line, then read row by row with f_gets,
+  parse fields with sscanf, reconstruct each row's true epoch via
+  TimeUtil_ToEpoch(file's date, row's wall_clock), and if it falls inside
+  [start, end], send it as a DATA_ITEM/EVENT_ITEM frame (new named
+  constants TAG_DATA_ITEM 0x81 / TAG_EVENT_ITEM 0x82 added to comm.h,
+  replacing the bare magic numbers the original stub used). After all
+  matching days, send the same LEN=0 end-of-stream frame the stub already
+  sent — that part of the original behaviour is unchanged. This is the
+  first FatFs read-path code anywhere in this project — everything before
+  this was write-only (log_append_line).
+- Every file this code touches is opened FA_READ only, never FA_WRITE —
+  by construction, no bug in this code path can modify or corrupt
+  anything already logged; the worst possible outcome is reading nothing
+  or reading garbage, never damaging the log.
+- Bug found and fixed during review (before ever flashing): the sscanf
+  format strings were checked field-by-field, comma-by-comma, colon-by-
+  colon against Log_WriteData/Log_WriteEvent's actual sprintf format
+  strings, not assumed — %lu,%d:%d:%d,%d,%u,%u,%u,%u for data rows and
+  %lu,%d:%d:%d,%u,%u for event rows, matching exactly.
+- Bug found and fixed via the compiler: -Wformat-overflow flagged
+  `sprintf(date_str, "%02u%02u%02u", ...)` into `char date_str[7]` as a
+  potential overflow, since yy/mm/dd (uint8_t, from TimeUtil_FromEpoch in
+  a different translation unit) could in principle be up to 255 as far as
+  the compiler can prove, needing up to 3 digits each. Not a live bug in
+  practice (TimeUtil_FromEpoch only ever produces valid calendar values),
+  but fixed anyway by enlarging the buffer to 16 bytes — removing a real
+  compiler warning rather than dismissing it, given the SD-card stakes.
+- Bug found and fixed via live hardware testing — the serious one: a
+  GET_DATA_RANGE request spanning start=0/end=0xFFFFFFFF (a deliberately
+  wide "everything" test query) caused an IWDG watchdog reset. The day-
+  iteration loop had no upper bound, so a multi-decade range attempted
+  millions of f_open() calls without ever yielding; Comm_Task runs at a
+  higher FreeRTOS priority than Watchdog_Task, so the loop starved
+  Watchdog_Task of any CPU time for over 10 seconds and the watchdog
+  fired. Fixed with a hard cap (GET_RANGE_MAX_DAYS, 8 — one day of slack
+  beyond the 7-day retention window, since nothing older can possibly
+  exist as a file regardless of what a client requests) clamping
+  end_day_epoch relative to the start day. Verified: the identical
+  start=0/end=0xFFFFFFFF request that previously reset the board now
+  completes cleanly with no reset. As a side effect, the same clamp
+  arithmetic also safely handles a malformed/reversed request (end <
+  start), which would otherwise underflow the original unbounded loop's
+  condition.
+  Note: a clean watchdog reset is not itself a data-integrity risk (it's
+  a normal MCU reset, and this code never writes anything) — but it did
+  interrupt real-time logging for a few seconds until reboot, and would
+  be a genuine usability problem for a Ground Station making an
+  unintentionally wide query.
+- Verified end-to-end on real hardware with real logged data (not just
+  the stub's empty response): a GET_DATA_RANGE request for an actual
+  24-hour window returned 322 real DATA_ITEM records; a GET_EVENTS_RANGE
+  request over the same window returned 108 real EVENT_ITEM records.
+  Both streams' first records were cross-checked against the raw CSV
+  content directly (record #1 in each case matched the corresponding
+  CSV's first data row exactly, including the reconstructed epoch
+  timestamp converting back to the correct wall-clock time).
+- Verified the write path was never affected: the SD card's original
+  D260909.CSV/E260909.CSV content (234 and 65 lines respectively,
+  backed up with sha256 checksums before any of this session's LNC
+  changes were made) remained byte-for-byte identical as a prefix of the
+  files after all of this testing, including the watchdog-reset
+  incident — confirmed by diffing the backup against the live card, not
+  just inferred from "only FA_READ was used." New lines beyond the
+  original count are exactly the continued normal logging (and the
+  watchdog-reset/reboot cycle) that occurred during testing.

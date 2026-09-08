@@ -27,6 +27,8 @@
 #define TAG_EVENT            0x11U
 #define TAG_TIME_SYNC_REQ    0x13U
 #define TAG_TIME_REPORT      0x80U
+#define TAG_DATA_ITEM        0x81U
+#define TAG_EVENT_ITEM       0x82U
 
 /* TLV tag bytes (incoming) */
 #define TAG_SET_CONFIG       0x20U

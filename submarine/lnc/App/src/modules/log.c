@@ -68,9 +68,9 @@ static uint8_t log_get_datetime_strs(char *date_buf, char *time_buf)
  * e.g. prefix="DATA_", date="20260907" -> "DATA_20260907.csv"
  * buf must be at least 20 bytes.
  */
-static void log_build_filename(char *buf,
-                               const char *prefix,
-                               const char *date_str)
+void Log_BuildFilename(char *buf,
+                       const char *prefix,
+                       const char *date_str)
 {
     (void)sprintf(buf, "%s%s%s.csv", USERPath, prefix, date_str);
 }
@@ -258,7 +258,7 @@ void Log_WriteData(const MonitorData_t *data)
     char line[80];
 
     log_get_datetime_strs(date_str, time_str);
-    log_build_filename(filename, LOG_DATA_PREFIX, date_str);
+    Log_BuildFilename(filename, LOG_DATA_PREFIX, date_str);
 
     (void)sprintf(line, "%lu,%s,%d,%u,%u,%u,%u\r\n",
                   (unsigned long)(HAL_GetTick() / 1000U),
@@ -282,7 +282,7 @@ void Log_WriteEvent(const CommEventPayload_t *event)
     char line[64];
 
     log_get_datetime_strs(date_str, time_str);
-    log_build_filename(filename, LOG_EVNT_PREFIX, date_str);
+    Log_BuildFilename(filename, LOG_EVNT_PREFIX, date_str);
 
     (void)sprintf(line, "%lu,%s,%u,%u\r\n",
                   (unsigned long)event->timestamp,
