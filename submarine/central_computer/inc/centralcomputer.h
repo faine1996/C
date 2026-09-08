@@ -1,0 +1,138 @@
+#ifndef CENTRAL_COMPUTER_H
+#define CENTRAL_COMPUTER_H
+
+#include "serialcomm.h"
+#include <string>
+#include <cstdint>
+#include <ctime>
+
+class CentralComputer
+{
+public:
+    /**
+     * @brief  Default constructor. Sets m_comms = nullptr.
+     *         Used for all non-live CombatSubmarines.
+     */
+    CentralComputer();
+
+    /**
+     * @brief  Overloaded constructor. Creates a live SerialComm on the
+     *         given port. Used only for the first CombatSubmarine added.
+     *         explicit prevents accidental string-to-CC implicit conversion.
+     * @param  port  Device path e.g. "/dev/ttyACM0".
+     */
+    explicit CentralComputer(const std::string &port);
+
+    /**
+     * @brief  Destructor. Deletes m_comms (safe if nullptr).
+     */
+    ~CentralComputer();
+
+    /**
+     * @brief  Copy constructor — deleted. Cannot duplicate a live serial port.
+     */
+    CentralComputer(const CentralComputer &)            = delete;
+
+    /**
+     * @brief  Copy assignment — deleted. Same reason.
+     */
+    CentralComputer &operator=(const CentralComputer &) = delete;
+
+    /**
+     * @brief  Move constructor. Transfers m_comms pointer ownership.
+     *         Sets other.m_comms = nullptr so other's destructor skips delete.
+     */
+    CentralComputer(CentralComputer &&other);
+
+    /**
+     * @brief  Move assignment. Deletes existing m_comms, then transfers
+     *         other.m_comms, sets other.m_comms = nullptr.
+     */
+    CentralComputer &operator=(CentralComputer &&other);
+
+    /**
+     * @brief  Returns true if this CC has a live serial connection.
+     */
+    bool isLive() const;
+
+    /**
+     * @brief  Sends a SET_TIME frame to the LNC. Packs the 7 broken-down
+     *         time fields from t into the TAG_SET_TIME (0x21) value bytes.
+     * @param  t  Broken-down time (year offset from 1900, so subtract 100
+     *            to get 2-digit year matching DS1307 format).
+     */
+    void sendSetTime(const struct tm &t);
+
+    /**
+     * @brief  Sends a SET_CONFIG frame to the LNC.
+     * @param  param_id  Config parameter ID byte.
+     * @param  value     Pointer to parameter value bytes.
+     * @param  len       Number of value bytes.
+     */
+    void sendSetConfig(uint8_t param_id,
+                       const uint8_t *value,
+                       uint8_t len);
+
+    /**
+     * @brief  Polls the serial port for incoming bytes and feeds them into
+     *         the TLV RX state machine. Prints decoded frames to stdout.
+     *         Reconstructs wall-clock time from stored set-time baseline
+     *         to display human-readable timestamps.
+     *         Call once per menu loop iteration.
+     */
+    void processIncoming();
+
+private:
+    SerialComm *m_comms;
+
+    /* Baseline for wall-clock reconstruction:
+     * m_set_time_wall  = system time when SET_TIME was sent to LNC
+     * m_set_time_tick  = LNC uptime seconds at that moment (from response) */
+    time_t m_set_time_wall;
+    bool   m_time_synced;
+
+    /* TLV RX state machine — mirrors the LNC's comm.c rx logic */
+    typedef enum
+    {
+        RX_WAIT_SOF   = 0,
+        RX_READ_TAG   = 1,
+        RX_READ_LEN   = 2,
+        RX_READ_VALUE = 3,
+        RX_READ_CHK   = 4
+    } RxState_t;
+
+    struct RxFrame
+    {
+        RxState_t state;
+        uint8_t   tag;
+        uint8_t   len;
+        uint8_t   value[255];
+        uint8_t   value_idx;
+        uint8_t   checksum_accum;
+    };
+
+    RxFrame m_rx;
+
+    /**
+     * @brief  Builds and sends one TLV frame: SOF + tag + len + value + chk.
+     */
+    void sendFrame(uint8_t tag, const uint8_t *value, uint8_t len);
+
+    /**
+     * @brief  Feeds one byte into the RX state machine.
+     */
+    void rxFeedByte(uint8_t byte);
+
+    /**
+     * @brief  Called when a complete valid frame has been received.
+     *         Decodes and prints the frame contents.
+     */
+    void rxDispatch(uint8_t tag, const uint8_t *value, uint8_t len);
+
+    /**
+     * @brief  Resets the RX state machine to WAIT_SOF.
+     */
+    void rxReset();
+};
+
+#endif /* CENTRAL_COMPUTER_H */

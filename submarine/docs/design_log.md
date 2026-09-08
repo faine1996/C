@@ -922,3 +922,139 @@ Event file (E{YYMMDD}.csv):
   Init_Init() (called in MX_FREERTOS_Init before osKernelStart) ensures
   the flag is captured before any other module could inadvertently clear
   it. __HAL_RCC_CLEAR_RESET_FLAGS() is called immediately after reading.
+
+  ## [CC] CombatSubmarine only has CentralComputer — spec inconsistency noted
+
+- Decision: CentralComputer is a member of CombatSubmarine only, not Submarine base.
+- Reasoning: spec p.7 explicitly states "it should be treated as an object that
+  belongs to each combat submarine" despite p.1 saying every submarine has one.
+  Treated as a spec inconsistency. Instructor notation recommended if questioned.
+- Future extension: move CentralComputer to Submarine base class if spec is clarified.
+
+## [CC] First CombatSubmarine added gets live serial link automatically
+
+- Decision: the first CombatSubmarine added to the fleet is automatically the live
+  unit — it prompts for a port path and uses the CentralComputer overloaded
+  constructor. All subsequent CombatSubmarines use the default constructor with
+  nullptr comms.
+- Reasoning: asking the user to identify the live submarine by serial number after
+  the fact adds a point of failure and requires the user to know the serial number
+  at runtime. First-added is simpler and unambiguous.
+- Future extension: accept a --port flag at program startup or read from a config
+  file to identify the live unit without user interaction.
+
+## [CC] Mission history recorded at assignment, not at end
+
+- Decision: CombatSubmarine::assignMission() pushes the description to
+  m_mission_history immediately. endMission() does not touch history.
+- Reasoning: one write at assignment is simpler than finding and updating an entry
+  at end. The spec says "keep track of missions" with no mention of completion
+  status.
+- Future extension: replace vector<string> with vector<Mission> struct holding
+  description, start time, end time, and status so completion can be recorded.
+
+## [CC] Copy semantics deleted on CentralComputer and SerialComm
+
+- Decision: copy constructor and copy assignment are deleted on both classes.
+  Only move is implemented.
+- Reasoning: duplicating an open file descriptor or serial port is meaningless
+  and dangerous — two objects closing the same fd on destruction would crash.
+  Move-only is the correct semantic for resource-owning types.
+- Future extension: if multiple CentralComputers ever need to share a port,
+  replace raw SerialComm* with shared_ptr<SerialComm> and copy becomes meaningful.
+
+## [CC] SerialComm configured at 115200 baud, not 9600
+
+- Decision: termios configured at B115200 matching the LNC's USART2 default.
+- Reasoning: CubeMX IOC file shows no explicit baud rate set for USART2 — CubeMX
+  defaults to 115200 for async mode on Nucleo boards. Confirmed by checking lnc.ioc.
+
+## [CC] TAG_SET_TIME value field — 7 broken-down bytes
+
+- Decision: TAG_SET_TIME (0x21) carries 7 raw bytes: year (0-99), month (1-12),
+  date (1-31), day_of_week (1-7), hours (0-23), minutes (0-59), seconds (0-59).
+  Maps directly onto Ds1307_Time_t fields with no conversion needed on either side.
+- Reasoning: alternative Unix timestamp (4-byte uint32) would require epoch-to-
+  broken-down-time conversion on the LNC — ~30 lines of C89 arithmetic. Since we
+  control both sides, the format that costs zero conversion on the receiver is
+  strictly simpler.
+
+## [CC] Wall-clock timestamp reconstruction in processIncoming()
+
+- Decision: CentralComputer stores the system time when SET_TIME was sent
+  (m_set_time_wall). Incoming LNC frames carry seconds-since-boot. Adding the two
+  gives the wall-clock time of the event. If SET_TIME was never sent, raw
+  seconds-since-boot is displayed instead.
+- Reasoning: the LNC has no way to send absolute wall-clock time in frames — it
+  only has HAL_GetTick(). The CC is the only side that knows both the real time
+  and when it synced the LNC, so reconstruction must happen here.
+
+## [Init Module] Removed direct printf() calls from Init_Task — root cause of a dropped TIME_SYNC_REQ frame
+
+- Decision: all printf() debug calls in Init_Task were removed. The task now
+  only posts to the Comm and Log queues; it does not touch stdio.
+- Reasoning: printf() is retargeted onto the same huart2 peripheral that
+  Comm_Task owns for TLV frame transmission, with no mutex between them —
+  exactly the interleaving hazard already flagged in the Stage 4/5 decisions
+  above ("Comm task will be the sole owner of UART, eliminating the
+  interleaving problem by design rather than by adding a mutex"). Init_Task
+  (added later, Stage 7) reintroduced the hazard by calling printf() directly
+  right after queuing COMM_MSG_TIME_SYNC_REQ. Root-caused on hardware: the
+  debug log printed "[INIT] TIME_SYNC_REQ sent" every boot, but the actual
+  0xAA-framed TLV bytes never appeared on the wire — confirmed via a hardware
+  breakpoint showing HAL_UART_Transmit() for the frame returning normally,
+  yet an external raw capture of the UART line showed no frame at all. The
+  two concurrent HAL_UART_Transmit calls (printf's and Comm_Task's) on the
+  same non-reentrant huart2 handle were corrupting each other's transmission.
+- Alternatives considered: add a mutex around huart2 access — rejected in
+  favor of just deleting the calls, since they were debug-only output with
+  no functional purpose, and the existing project convention (Comm task is
+  sole UART owner) already argues against any other module touching it.
+- Verified: after removing the printf calls and reflashing, a raw capture
+  taken while already listening across a reset shows a clean
+  `aa 13 00 13` TIME_SYNC_REQ frame immediately followed by the first
+  KEEPALIVE — reliably, every boot.
+
+## [Init Module] Startup event now also sent to the Central Computer, not just logged locally
+
+- Decision: Init_Task posts the startup CommEventPayload_t to both
+  Log_GetEventQueueHandle() (unchanged) and Comm_GetTxQueueHandle() (new,
+  via COMM_MSG_EVENT) so the event is both written to the SD event log and
+  transmitted as a TAG_EVENT frame to the CC.
+- Reasoning: supersedes the earlier decision ("Startup event written
+  directly to Log event queue") that this event never needs to reach the CC.
+  In practice the CC-side integration test expects to observe the startup
+  event over the wire, and there is value in the CC's own event view
+  reflecting every LNC boot (including whether it was a watchdog reset),
+  not just what's on the SD card. The extra queue post costs one more TLV
+  frame per boot — negligible.
+- Note: this reverses the "no CC message action" reasoning documented
+  earlier under [Init Module] Startup event written directly to Log event
+  queue. That entry's SD-logging behavior is unchanged; only the "CC does
+  not need to know" conclusion was revised.
+
+## [CC Tests] Merged startup-event and TIME_SYNC_REQ tests into one connection
+
+- Decision: test_startup_event_received and test_time_sync_req_received
+  (Part 2 test_runner.cpp) were merged into a single
+  test_startup_and_time_sync_received, sharing one CentralComputer
+  connection and checking both "startup" and "SET_TIME sent" against the
+  same captured output. The merged test now runs before
+  test_keepalive_received, not after.
+- Reasoning: TIME_SYNC_REQ and the startup event are both one-shot messages
+  fired once per boot, in sequence. Each test previously opened its own,
+  separate serial connection — but the kernel only delivers each incoming
+  byte to whichever connection's read() call happens first; once one
+  connection consumes those bytes, a later connection sees nothing. With
+  two separate tests, whichever ran first (previously test_keepalive_received,
+  which also has no reason to expect one-shot data but incidentally consumed
+  it during its own 10-second poll) silently ate both one-shot messages
+  before the two tests that actually checked for them ever got a turn —
+  a structural bug, not a timing flake. Sharing one connection across both
+  checks is the only way for both assertions to pass against the same boot.
+- Known limitation: catching TIME_SYNC_REQ still requires the test's
+  connection to already be open (or opened within roughly a second) when
+  the board resets, since Init_Task fires it almost immediately at boot.
+  A reset followed immediately by `./run_tests`, with no deliberate delay,
+  gives the most reliable result. KEEPALIVE is unaffected, since it repeats
+  periodically once Monitor is running.

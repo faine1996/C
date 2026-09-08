@@ -10,7 +10,7 @@ The system has three programs, each with a distinct role:
 | Component | Language | Runs on | Role |
 |---|---|---|---|
 | **Local Node Controller (LNC)** | C (ANSI C89 style) | STM32 Nucleo-L476RG | Reads onboard sensors, detects objects, manages local alarms and logging |
-| **Central Computer** | C++ | PC | Manages the LNC end unit(s), owned as an object by each combat submarine |
+| **Central Computer** | C++ | PC | Manages the fleet (research + combat submarines) and the live LNC link, owned as an object by each combat submarine |
 | **Ground Station** | C++ | PC | Requests stored data and events from the Central Computer over time ranges |
 
 The LNC talks to the Central Computer over **UART**, using a framed TLV
@@ -31,9 +31,9 @@ delivery.
     │           ├── drivers/   Hardware drivers (LED, buzzer, DHT11, ADC, IR, button)
     │           ├── modules/   Application logic (Monitor, Event, Config, ...)
     │           └── test/      Test bench + menu-driven per-driver self-tests
-    ├── central_computer/       C++ (in progress)
-    ├── ground_station/         C++ (in progress)
-    └── docs/                   Design log, protocol spec (not tracked in git)
+    ├── central_computer/       C++ fleet manager + live LNC link (built, tested)
+    ├── ground_station/         C++ (not yet started)
+    └── docs/                   Design log, protocol spec
 
 ## Hardware
 
@@ -42,7 +42,7 @@ delivery.
   humidity), potentiometer (simulated battery voltage), photoresistor
   (light level), IR receiver (object detection — point a remote at it),
   RGB LED, buzzer, and pushbuttons
-- Data-logging shield (SD card + RTC) — present but not yet in use
+- Data-logging shield (SD card + DS1307 RTC) — in use since Stage 6
 
 ## Building and flashing the LNC
 
@@ -86,9 +86,9 @@ pointing a remote at the sensor triggers an alarm (LED red, buzzer on)
 independently of the monitor mode. Pressing the alarm-stop button clears
 the buzzer and restores the LED to the underlying monitor mode.
 
-All mode transitions and object detection events are printed over UART
-and stubbed for transmission to the Central Computer (to be wired up
-in a later stage).
+All mode transitions and object detection events are sent to the Central
+Computer as framed TLV messages over UART, in addition to being logged
+locally to the SD card.
 
 ## Testing
 
@@ -123,15 +123,30 @@ debugging by swapping the task body in Core/Src/freertos.c.
   (TIM3 CH1) to support non-blocking alarm-on/off.
 - **Stage 4 (FreeRTOS task integration) — complete.** Monitor, Event,
   Keep-Alive, and Watchdog running as separate FreeRTOS tasks. Monitor
-  posts sensor data to Event and Keep-Alive via queues. Keep-Alive prints
-  a heartbeat stub every 5 seconds. Watchdog refreshes the IWDG every
-  500ms. printf output from concurrent tasks interleaves on UART — will
-  be resolved in Stage 5 with a dedicated Comm task and queue.
-- **Stage 5 (Communication module + TLV framing) — next up.**
-- Central Computer and Ground Station (C++) — not yet started.
+  posts sensor data to Event and Keep-Alive via queues. Watchdog refreshes
+  the IWDG every 500ms.
+- **Stage 5 (Communication module + TLV framing) — complete.** Comm task
+  owns UART2 exclusively: polls for incoming bytes, drains an outgoing
+  message queue, and is the only module that calls the UART HAL directly.
+  KEEPALIVE, EVENT, and TIME_SYNC_REQ frames are sent as framed TLV
+  (SOF + tag + length + value + checksum) matching the Central Computer's
+  parser.
+- **Stage 6 (Log module) — complete.** Sensor readings and events are
+  written to dated CSV files on an SD card (FatFs over SPI), with 7-day
+  retention. Verified writing on hardware in all system modes.
+- **Stage 7 (Init module) — complete.** On boot, requests a time sync from
+  the Central Computer (TIME_SYNC_REQ / SET_TIME), falls back to the
+  battery-backed DS1307 RTC if the CC doesn't respond, and reports a
+  startup event to both the SD log and the Central Computer.
+- **Central Computer (C++) — built and tested.** Fleet management
+  (add/find/display submarines, assign/update/end missions, companion
+  messaging) plus a live LNC link over the same TLV protocol
+  (KEEPALIVE/EVENT/TIME_SYNC_REQ handling). 37 tests passing, covering
+  both the menu/OOP layer and live hardware integration.
+- Ground Station (C++) — not yet started.
 
 ## Design decisions
 
 Reasoning behind the protocol format, pin assignments, threshold
 directions, and all other implementation choices is kept in a running
-decision log, not tracked in this repository.
+decision log at `docs/design_log.md`.

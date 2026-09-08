@@ -4,7 +4,6 @@
 #include "Ds1307.h"
 #include "stm32l4xx_hal.h"
 #include "cmsis_os.h"
-#include <stdio.h>
 
 /* -----------------------------------------------------------------------
  * Constants
@@ -67,7 +66,6 @@ void Init_Task(void *argument)
     /* --- Step 1: request time sync from Central Computer --- */
     msg.type = COMM_MSG_TIME_SYNC_REQ;
     osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
-    printf("[INIT] TIME_SYNC_REQ sent\r\n");
 
     /* --- Step 2: wait for SET_TIME response --- */
     status = osMessageQueueGet(s_time_queue,
@@ -78,41 +76,17 @@ void Init_Task(void *argument)
     if (osOK == status)
     {
         /* CC responded — write the received time to DS1307 */
-        if (DS1307_OK == Ds1307_SetTime(&t))
-        {
-            printf("[INIT] DS1307 set from CC: 20%02u/%02u/%02u %02u:%02u:%02u\r\n",
-                   (unsigned)t.year,
-                   (unsigned)t.month,
-                   (unsigned)t.date,
-                   (unsigned)t.hours,
-                   (unsigned)t.minutes,
-                   (unsigned)t.seconds);
-        }
-        else
-        {
-            printf("[INIT] DS1307 write failed after SET_TIME\r\n");
-        }
+        (void)Ds1307_SetTime(&t);
     }
     else
     {
-        /* Timeout — check if DS1307 already has battery-backed time */
-        printf("[INIT] No SET_TIME response within %u ms\r\n",
-               (unsigned)INIT_TIME_SYNC_TIMEOUT_MS);
-
+        /* Timeout — check if DS1307 already has battery-backed time.
+         * If not, Log_Init() already wrote a default — nothing more to do. */
         is_set = 0U;
-
-        if (DS1307_OK == Ds1307_IsTimeSet(&is_set) && (1U == is_set))
-        {
-            printf("[INIT] DS1307 has valid battery-backed time — continuing\r\n");
-        }
-        else
-        {
-            /* Log_Init() already wrote a default — nothing more to do */
-            printf("[INIT] DS1307 not set — using Log_Init default\r\n");
-        }
+        (void)Ds1307_IsTimeSet(&is_set);
     }
 
-    /* --- Step 3: write startup event to log --- */
+    /* --- Step 3: write startup event to log and notify Central Computer --- */
     startup_event.event_type = COMM_EVENT_STARTUP;
     startup_event.detail     = s_was_wd_reset;   /* 1 = WD reset, 0 = normal */
     startup_event.timestamp  = HAL_GetTick() / 1000U;
@@ -122,8 +96,9 @@ void Init_Task(void *argument)
                       0U,
                       0U);
 
-    printf("[INIT] Startup event logged (wd_reset=%u)\r\n",
-           (unsigned)s_was_wd_reset);
+    msg.type          = COMM_MSG_EVENT;
+    msg.payload.event = startup_event;
+    osMessageQueuePut(Comm_GetTxQueueHandle(), &msg, 0U, 0U);
 
     /* --- Done: this task's job is finished --- */
     osThreadExit();
