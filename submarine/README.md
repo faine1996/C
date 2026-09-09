@@ -16,9 +16,11 @@ The system has three programs, each with a distinct role:
 The LNC talks to the Central Computer over **UART**, using a framed TLV
 (Tag-Length-Value) protocol with a start-of-frame marker and checksum for
 resync and error detection. The Central Computer talks to the Ground
-Station over **TCP**, using the same TLV message vocabulary without the
-UART-specific framing, since TCP already guarantees reliable, ordered
-delivery.
+Station over **TCP**, using the same TLV tags and value formats but a
+simpler frame (length + tag + value, no start-of-frame marker or
+checksum), since TCP already guarantees reliable, ordered delivery. Both
+framings, and the tag/value definitions shared between them, live in
+`shared/tlv/` so neither program duplicates the protocol independently.
 
 ## Repository layout
 
@@ -32,7 +34,8 @@ delivery.
     │           ├── modules/   Application logic (Monitor, Event, Config, ...)
     │           └── test/      Test bench + menu-driven per-driver self-tests
     ├── central_computer/       C++ fleet manager + live LNC link (built, tested)
-    ├── ground_station/         C++ (not yet started)
+    ├── ground_station/         C++ client for historical data/event queries (built, tested)
+    ├── shared/tlv/             TLV codec shared by central_computer and ground_station
     └── docs/                   Design log, protocol spec
 
 ## Hardware
@@ -88,7 +91,10 @@ the buzzer and restores the LED to the underlying monitor mode.
 
 All mode transitions and object detection events are sent to the Central
 Computer as framed TLV messages over UART, in addition to being logged
-locally to the SD card.
+locally to the SD card. The Central Computer (and, through it, the
+Ground Station) can also request historical data or events for a given
+time range — the LNC reads the matching rows straight back off the SD
+card and streams them over the same link.
 
 ## Testing
 
@@ -138,12 +144,24 @@ debugging by swapping the task body in Core/Src/freertos.c.
   the Central Computer (TIME_SYNC_REQ / SET_TIME), falls back to the
   battery-backed DS1307 RTC if the CC doesn't respond, and reports a
   startup event to both the SD log and the Central Computer.
+- **Historical data/event queries (GET_DATA_RANGE / GET_EVENTS_RANGE) —
+  complete.** The LNC reads matching rows straight from its SD-card CSV
+  logs for a requested time range and streams them back as DATA_ITEM/
+  EVENT_ITEM frames; per-row timestamps are reconstructed as true epoch
+  time from each file's date plus its wall-clock column, independent of
+  the LNC's own uptime-relative clock. Verified end-to-end on real
+  hardware through the full chain (Ground Station → Central Computer →
+  LNC → SD card and back).
 - **Central Computer (C++) — built and tested.** Fleet management
   (add/find/display submarines, assign/update/end missions, companion
-  messaging) plus a live LNC link over the same TLV protocol
-  (KEEPALIVE/EVENT/TIME_SYNC_REQ handling). 37 tests passing, covering
-  both the menu/OOP layer and live hardware integration.
-- Ground Station (C++) — not yet started.
+  messaging); a live LNC link over UART (KEEPALIVE/EVENT/TIME_SYNC_REQ
+  handling, GET_DATA_RANGE/GET_EVENTS_RANGE requests); and a TCP server
+  relaying Ground Station queries to the LNC and back on a background
+  thread. 37 tests passing, covering the menu/OOP layer and live
+  hardware integration.
+- **Ground Station (C++) — built and tested.** Connects to the Central
+  Computer over TCP, requests measurement or event data for a
+  human-readable time range, and displays the returned records.
 
 ## Design decisions
 
