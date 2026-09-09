@@ -73,7 +73,16 @@ static void comm_send_bytes(const uint8_t *buf, uint16_t len)
 
 static HAL_StatusTypeDef comm_recv_byte(uint8_t *byte_out)
 {
-    return HAL_UART_Receive(&huart2, byte_out, 1U, COMM_RX_TIMEOUT_MS);
+    HAL_StatusTypeDef status;
+
+    status = HAL_UART_Receive(&huart2, byte_out, 1U, COMM_RX_TIMEOUT_MS);
+
+    if (HAL_OK != status)
+    {
+        __HAL_UART_CLEAR_OREFLAG(&huart2);
+    }
+
+    return status;
 }
 
 /* -----------------------------------------------------------------------

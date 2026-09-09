@@ -1359,3 +1359,127 @@ Event file (E{YYMMDD}.csv):
   just inferred from "only FA_READ was used." New lines beyond the
   original count are exactly the continued normal logging (and the
   watchdog-reset/reboot cycle) that occurred during testing.
+
+## [GS] Ground Station client — TcpClient, GroundStation, Menu
+
+- Decision: built submarine/ground_station/ as a standalone C++17
+  program, mirroring central_computer's conventions (CMake 3.16, explicit
+  source lists, inc/src layout). TcpClient (RAII outbound TCP socket)
+  mirrors SerialComm/SocketComm's send/recv/isOpen() shape exactly.
+  GroundStation owns a TcpClient + tlv::TcpFramer, exposes
+  requestDataRange(start, end)/requestEventsRange(start, end) returning
+  std::vector<tlv::MeasurementBlock>/std::vector<tlv::EventBlock> —
+  blocks internally until the full streamed response arrives or a
+  5-second no-data timeout elapses, using the same wait-loop pattern as
+  GroundStationLink::relayRequest (single-threaded here, no mutex needed
+  since nothing else touches this program's one connection). Menu
+  prompts for human-readable "YYYY-MM-DD HH:MM:SS" times, converts via
+  timegm (UTC, matching the epoch semantics used throughout this
+  protocol) rather than hand-rolling calendar math the way the LNC has
+  to — the PC side has full <ctime> available.
+- Reasoning: TcpClient's connect() is left a plain blocking call (unlike
+  SocketComm::acceptClient(), which needed a receive-timeout workaround
+  to avoid a shutdown hang on a background thread) — Ground Station is a
+  foreground CLI with no background thread to unblock, so the simplest
+  correct option is used rather than copying a pattern that solves a
+  problem this program doesn't have.
+- CMakeLists.txt deliberately excludes uart_framer.cpp and
+  find_package(Threads)/target_link_libraries — Ground Station never
+  speaks the UART framing and never spawns a thread, so pulling either
+  in would just be unused code.
+- Verified end-to-end on real hardware, through the actual ground_station
+  binary (not a raw test script): 166 real DATA_ITEM records and 28 real
+  EVENT_ITEM records returned for a live time window, correctly decoded
+  and displayed.
+
+## [CC] GroundStationLink timeout fallback sent the wrong tag
+
+- Decision: fixed relayRequest's timeout branch (groundstationlink.cpp)
+  to synthesize its end-of-stream frame using TAG_DATA_ITEM/TAG_EVENT_ITEM
+  (matching whichever the original request was for), not the request's
+  own tag (TAG_GET_DATA_RANGE/TAG_GET_EVENTS_RANGE) which the code had
+  been reusing by mistake.
+- Reasoning: on timeout, the synthesized frame is supposed to look like a
+  normal end-of-stream marker to the Ground Station client (LEN=0 with
+  the response tag) so it stops waiting cleanly. Sending the request's
+  own tag instead produced a frame no client would recognize as any kind
+  of DATA_ITEM/EVENT_ITEM response, so a genuine timeout looked
+  indistinguishable from silence rather than a clean "stream ended, no
+  more data" signal. Found via a raw byte capture during debugging (the
+  unexpected `00 23` bytes were this exact malformed fallback frame,
+  which is what led to finding it).
+
+## [LNC] Comm_Task UART receive missing ORE-clear — same bug as the menu, different file
+
+- Decision: comm_recv_byte() (comm.c) now explicitly clears the UART
+  overrun error flag (__HAL_UART_CLEAR_OREFLAG) whenever
+  HAL_UART_Receive does not return HAL_OK, mirroring the fix already
+  documented above under "[Firmware] UART overrun (ORE) must be cleared
+  explicitly on read failure" for the Stage-1 menu's own UART receive.
+- Reasoning: that earlier fix was applied only to the menu's receive
+  code; Comm_Task's separate, later-added polling receive
+  (comm_recv_byte) has the exact same vulnerability — a single hardware
+  byte slot, no interrupt/DMA buffering — and had never been given the
+  same fix. Root-caused via live hardware debugging: after the SD-card
+  SPI wedge incident below froze the CPU for an extended period, bytes
+  arriving on the UART during that freeze overran the one-byte receive
+  buffer and set ORE. Since nothing cleared it, the UART silently
+  refused every subsequently received byte forever, while transmit
+  (unaffected by ORE) kept working completely normally — regular
+  KEEPALIVE/EVENT telemetry never stopped, which is what made this
+  confusing to diagnose: dispatch_command was never entered for any
+  incoming command, yet the LNC looked otherwise healthy.
+- Diagnostic method: hardware breakpoints via OpenOCD/SWD confirmed
+  rx_feed_byte() was still being called (bytes were arriving and being
+  fed to the RX state machine) but dispatch_command() was never reached
+  for any tag — narrowing the fault to the receive/parsing path rather
+  than a hang inside a specific command handler. A direct memory dump of
+  the RX state machine's static s_rx struct confirmed it was wedged in
+  RX_READ_VALUE with a stale tag/len from an earlier malformed byte
+  sequence, permanently absorbing all further bytes as bogus leftover
+  payload and never reaching the checksum stage — consistent with ORE
+  having desynced the byte stream at some point.
+- Caution for future debugging: repeatedly halting/resuming the CPU via
+  SWD while a live UART transaction is in flight can itself desync the
+  UART's internal state, independent of any real firmware bug — this was
+  discovered when a "still failing" result during debugging turned out
+  to be caused by the debugging process itself, not the code. A clean
+  test (reset the board, then interact with it purely through the
+  intended software path with zero SWD probing) is needed to trust a
+  result as representing real behaviour, not an artifact of instrumentation.
+- Verified: after the fix, a clean (no-SWD-interference) test showed
+  dispatch_command correctly handling a GET_DATA_RANGE request and
+  streaming real DATA_ITEM frames back, and the full central_computer +
+  ground_station pipeline confirmed working end-to-end afterward.
+
+## [Hardware] SD card SPI wedge — recovered via physical power-cycle, no data lost
+
+- Decision: none (incident report). No firmware change was needed for
+  this specific incident — the fix was physically removing and
+  reinserting the SD card.
+- Reasoning: during live testing of the new GET_DATA_RANGE/
+  GET_EVENTS_RANGE read path (first-ever concurrent SD access between
+  Log_Task's writes and Comm_Task's new reads), the board went
+  completely silent — no telemetry at all. SWD halt confirmed the CPU
+  stuck cycling entirely inside HAL_SPI_TransmitReceive/
+  SPI_WaitFifoStateUntilTimeout across multiple samples, consuming all
+  CPU time. A software reset did not clear it — the board then hung even
+  earlier, inside f_mount() itself. A minimal, independent test program
+  (github.com EMB/FATFS/FATFS project, confirmed to use identical SPI1/
+  SD_CS pin assignments via both .ioc files) also failed with the same
+  symptom (SD test error: 1) with zero LNC code involved, isolating the
+  problem to the card/electrical state rather than anything in the LNC
+  firmware's task structure. A software/MCU reset cannot power-cycle the
+  SD card itself, since it is a separately-powered peripheral — only
+  physically removing and reinserting it actually cycles its power.
+  After doing so, the same minimal test program mounted, wrote, and read
+  back a file successfully on the first try. No reformatting was needed
+  and no data was lost — the original backed-up CSV content was
+  confirmed byte-for-byte intact afterward (see the GET_DATA_RANGE
+  verification entry above).
+- Open question, not resolved: whether Log_Task and Comm_Task's SD
+  access genuinely contended to cause the initial wedge (the concurrency
+  risk flagged before this code was written), or whether the wedge had
+  an unrelated cause and the concurrency risk remains untested. Left
+  for a future investigation — noted explicitly so it isn't mistaken for
+  "already ruled out."

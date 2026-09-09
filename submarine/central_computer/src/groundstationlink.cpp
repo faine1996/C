@@ -131,8 +131,14 @@ void GroundStationLink::relayRequest(uint8_t tag, const uint8_t *value, uint8_t 
             {
                 cerr << "[GS-LINK] Timed out waiting for LNC response\n";
 
-                frameLen = tlv::TcpFramer::buildFrame(tag, nullptr, 0U, frameBuf);
-                m_socket.send(frameBuf, (uint8_t)frameLen);
+                {
+                    uint8_t responseTag = (tlv::TAG_GET_DATA_RANGE == tag)
+                                         ? tlv::TAG_DATA_ITEM
+                                         : tlv::TAG_EVENT_ITEM;
+
+                    frameLen = tlv::TcpFramer::buildFrame(responseTag, nullptr, 0U, frameBuf);
+                    m_socket.send(frameBuf, (uint8_t)frameLen);
+                }
 
                 break;
             }
